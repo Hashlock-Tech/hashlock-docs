@@ -2,6 +2,17 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Hashlock Markets",
+  "description": "Developer documentation for Hashlock Markets: non-custodial atomic P2P cross-chain swaps (Bitcoin, EVM, TRON, Solana) via sealed RFQ and HTLC — REST API, SDK, webhooks and MCP for AI agents.",
+  "seo": {
+    "indexing": "navigable",
+    "metatags": {
+      "og:site_name": "Hashlock Markets Docs",
+      "keywords": "atomic swap, HTLC, cross-chain, RFQ, OTC, Bitcoin, TRON, Solana, EVM, non-custodial, MCP, AI agents, API"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
+  },
   "colors": {
     "primary": "#0071e3",
     "light": "#3b95ff",
