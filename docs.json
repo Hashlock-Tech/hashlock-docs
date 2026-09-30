@@ -152,11 +152,11 @@
         "items": [
           {
             "label": "Terms",
-            "href": "https://hashlock.markets/legal/terms"
+            "href": "https://hashlock.markets/terms"
           },
           {
             "label": "Privacy",
-            "href": "https://hashlock.markets/legal/privacy"
+            "href": "https://hashlock.markets/privacy"
           }
         ]
       }

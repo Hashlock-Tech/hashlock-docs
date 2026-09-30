@@ -173,7 +173,7 @@ The response is chain-specific signing material. Sign it locally and broadcast. 
 
 ```typescript
 import { createPublicClient, createWalletClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { sepolia } from 'viem/chains'; // the testnet; use the chain your swap's leg is on
 
 const build = await (await fetch(`${HL}/v1/swaps/${swapId}/legs/${myFundLeg}/fund`, {
   method: 'POST', headers: { Authorization: `Bearer ${HK}` },
