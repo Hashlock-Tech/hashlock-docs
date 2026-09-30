@@ -1,0 +1,60 @@
+---
+title: "HTLC and timelocks"
+description: "One sha256 hashlock on every chain, and asymmetric timelocks so nobody holds a free option."
+---
+
+## Hash time-locked contracts
+
+Each leg of a swap is an HTLC escrow with two ways out:
+
+- **Claim**: anyone presenting the `secret` whose `sha256` equals the hashlock releases the funds to the leg's **recipient**.
+- **Refund**: after the leg's **timelock**, the funds go back to the funder.
+
+## `sha256` on every chain
+
+Both legs use the same hashlock, `sha256(secret)`, and the secret is 32 bytes.
+
+- **Why sha256**: Bitcoin Script has `OP_SHA256` but no keccak. Using `sha256` everywhere lets one secret open a Bitcoin P2WSH escrow and an EVM, TRON or Solana escrow alike. The EVM and TRON contracts compute `sha256`, not `keccak256`.
+- **Why exactly 32 bytes**: the EVM and TRON contracts take the secret as `bytes32`, and the Solana program enforces the same length. A longer preimage could open one leg but not the other.
+- **Format in the API**: `hashlock` is 64 hex characters (no `0x`). The `secret` sent to the claim builder is 32-byte hex.
+
+The initiator generates the secret locally and only sends the hashlock. A hashlock already used by a live swap is refused; generate a new secret for each swap.
+
+## Asymmetric timelocks
+
+The two legs do **not** expire at the same time.
+
+- The **initiator** holds the secret and funds the **long** leg.
+- The **counterparty** funds the **short** leg.
+
+The initiator reveals the secret by claiming the short leg. The counterparty then needs time to use that secret on the long leg before the initiator could refund it. If the timelocks were equal, or reversed, the initiator could wait, claim at the last moment and refund their own leg — holding a free option on the trade.
+
+### How the server picks them
+
+Each chain has a safe timelock, set from its finality and reorg risk. The current values in the server's chain config are:
+
+| Chain | Family | Leg timelock |
+|---|---|---|
+| Bitcoin | `bitcoin` | 24 hours |
+| Ethereum (Sepolia) | `evm` | 4 hours |
+| TRON (Nile) | `tvm` | 4 hours |
+| Solana (devnet) | `svm` | 4 hours |
+
+For a pair of chains:
+
+1. The leg on the chain with the **longer** safe timelock is the long (initiator) leg. On a tie, leg `b` — the taker's — is the long leg.
+2. The short leg gets its chain's timelock.
+3. The long leg gets `max(its chain's timelock, short leg + 2 hours)`. The minimum gap between the legs is **2 hours**.
+
+Examples:
+
+- BTC ↔ Sepolia: the Bitcoin leg is long at 24 h, the EVM leg is short at 4 h.
+- Sepolia ↔ Solana (tie): the short leg is 4 h, the long leg is 6 h.
+
+Timelocks are fixed when the swap is created and are absolute times. `GET /v1/swaps/{id}` shows them per leg.
+
+<Note>
+On Bitcoin, a refund's timelock is measured against the chain's **median time past**, which trails real time. A refund built just after the timelock may be rejected by nodes as non-final; the refund builder says so and tells you how far behind the chain clock is.
+</Note>
+
+TRON ↔ TRON swaps are not offered: one side of the pair must be on another chain.

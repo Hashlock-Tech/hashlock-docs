@@ -1,0 +1,152 @@
+---
+title: "API keys"
+description: "Minting, scopes, expiry, limits, and proving wallets."
+---
+
+Every `/v1` call (except minting a key) needs an API key:
+
+```bash
+Authorization: Bearer hk_test_...
+```
+
+`X-Api-Key: hk_test_...` works too. Sandbox keys start with `hk_test_`, production keys with `hk_live_`.
+
+## Scopes
+
+| Scope | Allows |
+|---|---|
+| `read` | Nothing beyond what every valid key can do. |
+| `taker` | `POST /v1/rfqs`, `POST /v1/rfqs/{id}/cancel`. |
+| `maker` | `POST /v1/rfqs/{id}/quotes` and the [maker feed](/guides/maker-feed). |
+
+Only the endpoints above check a scope. Every other `/v1` endpoint — reads, wallets, threads, swaps, settlement builders, broadcast, webhooks — works with any valid key; threads and swaps are readable only by their two parties. A call that needs a scope the key lacks returns `403`. `GET /v1/me` shows the key's scopes.
+
+## Key rules
+
+- **Expiry**: a key works for **90 days** (`expiresAt` in the mint response). To renew, mint a new one.
+- **Shown once**: the plaintext key is returned once. The server stores only its hash and a display prefix.
+- **Owner is told**: every new key is announced to the account owner in Telegram, when Telegram is linked.
+- **Wallet-only accounts hold 1 key**. An account with only a wallet (an agent that minted by signature, or a wallet sign-in) holds one live key. A new signed mint **replaces** the previous key, which stops working. This is also how an agent recovers a lost or leaked key.
+- **Person-backed accounts hold up to 10**. An account signed up at [/developers](https://dev.hashlock.markets/developers) with email, Google or Telegram holds up to 10 live keys. Minting an eleventh is refused until one is revoked.
+- **One rate budget per account**: all keys of an account share it. More keys do not buy more rate. See [Rate limits](/guides/rate-limits-and-idempotency).
+
+## Mint a key in the browser
+
+Sign in at [dev.hashlock.markets/developers](https://dev.hashlock.markets/developers) and create a key. Revoke keys there too.
+
+## Mint a key with a wallet signature
+
+No browser, no existing key. This is the path for agents.
+
+1. `GET /v1/keys/nonce` → `{ "nonce": "…" }`. The nonce is single-use and lives 5 minutes.
+2. Sign a message with the wallet (rules below).
+3. `POST /v1/keys` with `{ rail, address, message, signature }`, where `rail` is `evm`, `tron`, `solana` or `bitcoin`.
+
+The key belongs to the account that wallet **signs in to**, created on first use. A wallet proven onto another account does not reach that account.
+
+### The message
+
+```text
+Hashlock Markets — create an API key.
+
+Address: 0xYourAddress
+Key name: my-agent
+Scopes: read, taker
+Nonce: 9b1e4c0f7a2d4e8b8c3f5a6d7e0b1c2d
+```
+
+The server checks:
+
+| Rule | Detail |
+|---|---|
+| Product marker | The text contains `Hashlock Markets`. |
+| Purpose | The text contains `create an API key` (case-insensitive). |
+| Address | The text contains the signing address (case-insensitive). Not required for `bitcoin`, where the BIP-322 signature is already bound to the address. |
+| `Nonce:` | Exactly one `Nonce: <letters and digits>` from `GET /v1/keys/nonce`. A second `Nonce:` is refused. |
+| `Key name:` | Optional, whole line, at most one, at most 80 characters. |
+| `Scopes:` | Optional, whole line, at most one. Values from `read`, `taker`, `maker`, separated by commas or spaces. **Absent means all three.** Present but empty is an error. |
+
+The name and scopes are read **from the signed text only**. What the wallet signed is exactly what is minted.
+
+Signing per rail is the same as for [proving wallets](#proving-wallets): EVM `personal_sign` (EIP-191), TRON `signMessageV2`, Solana ed25519 `signMessage` (base58 signature), Bitcoin BIP-322.
+
+<CodeGroup>
+```bash curl
+NONCE=$(curl -s $HL/v1/keys/nonce | jq -r .nonce)
+# sign "$MESSAGE" with your wallet, then:
+curl -s -X POST $HL/v1/keys -H "content-type: application/json" -d "$(jq -n \
+  --arg a "$ADDRESS" --arg m "$MESSAGE" --arg s "$SIGNATURE" \
+  '{rail:"evm", address:$a, message:$m, signature:$s}')"
+```
+
+```typescript viem
+import { privateKeyToAccount } from 'viem/accounts';
+
+const HL = 'https://api-dev.hashlock.markets';
+const account = privateKeyToAccount(process.env.EVM_KEY as `0x${string}`);
+
+const { nonce } = await (await fetch(`${HL}/v1/keys/nonce`)).json();
+const message =
+  `Hashlock Markets — create an API key.\n\n` +
+  `Address: ${account.address}\n` +
+  `Key name: my-agent\n` +
+  `Scopes: read, taker\n` +
+  `Nonce: ${nonce}`;
+const signature = await account.signMessage({ message });
+
+const res = await fetch(`${HL}/v1/keys`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ rail: 'evm', address: account.address, message, signature }),
+});
+// { id, key, prefix, scopes, name, expiresAt, replaced }
+const minted = await res.json();
+```
+</CodeGroup>
+
+`replaced: true` means a previous key of this account was revoked by this mint.
+
+Minting is limited per client IP: 20 mint requests per hour.
+
+## Proving wallets
+
+An order that **gives** an asset needs a proven wallet on that asset's chain. A key starts with only the address its account signed in with. `GET /v1/me` lists, per chain, the `login` address and the `proven` ones.
+
+1. `GET /v1/wallets/nonce` → a single-use **link** nonce.
+2. Sign a message that contains `Hashlock Markets`, the words `link this wallet`, the address, and `Nonce: <nonce>`:
+
+   ```text
+   Hashlock Markets — link this wallet.
+
+   Address: 0xYourAddress
+   Nonce: 9b1e4c0f7a2d4e8b8c3f5a6d7e0b1c2d
+   ```
+
+   For Bitcoin the `Address:` line may be left out; the BIP-322 signature is verified against the address.
+3. `POST /v1/wallets/{evm|tron|solana|bitcoin}` with `{ address, message, signature }`.
+
+| Chain | Signature |
+|---|---|
+| EVM | `personal_sign` / EIP-191 |
+| TRON | `signMessageV2` |
+| Solana | ed25519 `signMessage`, base58 |
+| Bitcoin | BIP-322 (e.g. UniSat / OKX `signMessage(msg, 'bip322-simple')`) |
+
+Responses: `200` proven (repeating a proof you hold is also `200`); `400` bad signature, missing `link this wallet`, or a bad nonce; `409` the wallet belongs to another account.
+
+The link nonce is not a login nonce, and a key-mint nonce is not either. Each purpose has its own nonce pool, so a signature collected for one cannot be replayed for another. A link signature is not a session for that wallet's account.
+
+`DELETE /v1/wallets/{address}` withdraws a proof. Login addresses are not proofs and cannot be removed this way. Putting a proof back needs a new signature from that wallet.
+
+## Payout addresses
+
+A proof made with an API key widens what the account can **trade**. It does **not** count as a place to **receive** money.
+
+Over the API, `POST /v1/swaps/{id}/address` accepts an address that receives money — the payout address, and on Bitcoin and Solana the refund address too — only if it is:
+
+- a wallet the account **signed in with**, or
+- a wallet proven from a **signed-in wallet session on the web**. For Bitcoin, the pubkey of such an address.
+
+On EVM and TRON a refund returns to whoever funded, so the refund address only names the funder and is not restricted.
+
+This way a leaked key cannot point your money at the thief's wallet. If you need to be paid at a wallet that is not your login wallet, prove it from the web app while signed in.

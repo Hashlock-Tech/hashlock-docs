@@ -1,0 +1,39 @@
+---
+title: "Non-custodial guarantees"
+description: "What the server and the keeper can and cannot do with your funds."
+---
+
+## The server never signs your funds
+
+The fund, claim and refund endpoints return **unsigned** transactions. You sign them with your own key, wallet or HSM and submit them through `POST /v1/tx/broadcast` (or any node of your own). The server never holds your private keys.
+
+The initiator's secret is generated on the initiator's side. The server receives only `sha256(secret)` until the initiator reveals the secret on chain by claiming.
+
+## Escrow holds the principal, not Hashlock
+
+Funds sit in an HTLC escrow on each chain — a Bitcoin P2WSH script, an EVM clone, a TRON pool entry, a Solana PDA. The escrow has two exits only:
+
+- **claim** to the leg's recipient, with the secret;
+- **refund** to the funder, after the timelock.
+
+No exit pays anyone else.
+
+## Recipient fixed at funding
+
+The recipient is written into the escrow when the leg is funded (in the clone's immutable args, the pool entry, the P2WSH script, or the PDA's terms). Revealing the secret lets anyone **submit** a claim, but the funds still go only to that recipient. Knowing the secret does not let anyone redirect them.
+
+The API accepts address changes only while the swap is `agreed`, `initiator_funded` or `counterparty_funded`, and refuses a change that would move an escrow that is already funded.
+
+## The keeper
+
+The keeper is a server process that watches the chains. Where `claim` and `refund` are permissionless (EVM, TRON, Solana), it can submit them so a leg settles even if its party is offline. It pays gas; it never receives principal. A claim it submits pays the fixed recipient; a refund pays the funder. On Bitcoin a spend needs the owner's signature, so the keeper does not claim Bitcoin legs.
+
+## A leaked API key cannot redirect money
+
+An API key is a bearer credential with no wallet behind it, so the API limits what it can do with addresses:
+
+- Over the API, an address that **receives** money — the payout address, and on Bitcoin and Solana the refund address too — must be a wallet the account signed in with, or one proven from a signed-in wallet session on the web.
+- A wallet proven with an API key (`POST /v1/wallets/{chain}`) widens what the account can **trade**, but never counts as a payout address.
+- After rotating a leaked key, withdraw the proofs it made with `DELETE /v1/wallets/{address}`.
+
+See [API keys](/guides/api-keys).

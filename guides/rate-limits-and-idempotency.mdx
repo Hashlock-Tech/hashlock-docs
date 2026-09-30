@@ -1,0 +1,57 @@
+---
+title: "Rate limits and idempotency"
+description: "RateLimit headers, 429 handling, and safe retries with Idempotency-Key."
+---
+
+## Rate limits
+
+Every `/v1` response carries:
+
+| Header | Meaning |
+|---|---|
+| `RateLimit-Limit` | Requests allowed in the current window. |
+| `RateLimit-Remaining` | Requests left in it. |
+| `RateLimit-Reset` | Seconds until the window resets. |
+
+`X-RateLimit-Limit` and `X-RateLimit-Remaining` are sent as aliases.
+
+Over the limit, the API returns `429` with a `Retry-After` header (seconds). Wait that long before retrying.
+
+Limits apply at two levels, each over a 60-second window:
+
+- **Per key**: each API key has its own bucket.
+- **Per account**: all keys of one account share **one** budget. Minting more keys does not raise it. Over it, the `429` body says `too many requests for this account`.
+
+The server's configured default is 300 requests per window. Read `RateLimit-Limit` rather than hard-coding a number; the deployed value is what the header says.
+
+Quotes sent over the [maker feed](/guides/maker-feed) spend from the same budget as REST calls with that key.
+
+Key minting (`POST /v1/keys`) has its own limit: 20 requests per hour per client IP.
+
+## Idempotency
+
+Send an `Idempotency-Key` header on any `POST` (and `DELETE`) to make retries safe.
+
+```bash
+curl -s -X POST $HL/v1/rfqs -H "Authorization: Bearer $HK" \
+  -H "Idempotency-Key: 6f1c2a0e-rfq-001" -H "content-type: application/json" -d @rfq.json
+```
+
+| Situation | Result |
+|---|---|
+| First request with the key | Runs; the response is stored for **24 hours**. |
+| Retry, same key, same body | The stored response is replayed, with `Idempotency-Replayed: true`. |
+| Same key, different body | `422`. |
+| Retry while the first is still running | `409`. |
+| First response was `504` | **Not stored.** A retry with the same key really runs again. |
+
+Keys are scoped to your account, the HTTP method and the path. Any stored status is replayed, including a `400`: fix the request and use a new key.
+
+### Why 504 is special
+
+`504` is the one status meaning "we do not know what happened":
+
+- On the **settlement builders** and `POST /v1/swaps/{id}/address`: a chain or explorer read of ours timed out. Nothing was changed. Retry.
+- On **`POST /v1/tx/broadcast`**: the node did not answer in time. The transaction **may already be on chain**. Look up the txid before sending it again. Resending the same signed bytes yields the same txid.
+
+On the maker feed, the equivalent of the header is the `idempotencyKey` field of a quote frame.

@@ -1,0 +1,42 @@
+---
+title: "Introduction"
+description: "Servers, authentication and conventions of the /v1 REST API."
+---
+
+The endpoint pages in this section are generated from the live OpenAPI spec, which is the single source of truth:
+
+```text
+https://dev.hashlock.markets/api/v1/openapi.json
+```
+
+An interactive reference is also served by the API itself: [api-dev.hashlock.markets/v1/docs](https://api-dev.hashlock.markets/v1/docs).
+
+## Servers
+
+| Server | Base URL | Status |
+|---|---|---|
+| Sandbox (testnets) | `https://api-dev.hashlock.markets` | Live. Start here. |
+| Production | `https://api.hashlock.markets` | Not live yet. |
+
+All paths start with `/v1`. The maker feed is a WebSocket at `wss://<host>/v1/ws`.
+
+## Authentication
+
+Send an API key on every call except `GET /v1/keys/nonce` and `POST /v1/keys`:
+
+```bash
+curl -s https://api-dev.hashlock.markets/v1/me \
+  -H "Authorization: Bearer hk_test_..."
+```
+
+`X-Api-Key: hk_test_...` is accepted too. A missing key returns `401`; an invalid, revoked or expired one returns `401`; a key without the needed scope returns `403`.
+
+Get a key at [/developers](https://dev.hashlock.markets/developers), or mint one with a wallet signature. See [API keys](/guides/api-keys).
+
+## Conventions
+
+- **Amounts** are base-unit integer strings.
+- **Errors** are `{ "error": "<message>" }`.
+- **Pagination**: list endpoints take `?limit=` (up to 100, default 20) and `?cursor=`, and return `nextCursor` (`null` on the last page).
+- **Idempotency**: send `Idempotency-Key` on POSTs. See [Rate limits and idempotency](/guides/rate-limits-and-idempotency).
+- **Rate limits**: `RateLimit-*` headers on every response; `429` with `Retry-After` when over.

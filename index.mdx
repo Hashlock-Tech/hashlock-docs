@@ -1,0 +1,50 @@
+---
+title: "Hashlock Markets"
+description: "Non-custodial atomic P2P cross-chain swaps: Bitcoin to EVM, TRON and Solana, via sealed RFQ and HTLC."
+---
+
+<Warning>
+Hashlock Markets runs on **testnets only**: Ethereum Sepolia, TRON Nile, Bitcoin signet and Solana devnet. Mainnet comes after the security-hardening gate. Do not send real funds. The production API host `api.hashlock.markets` is not live yet.
+</Warning>
+
+## What it is
+
+Hashlock Markets lets two parties swap assets across chains directly, without a bridge and without a custodian.
+
+- A **taker** posts a request for quote (RFQ). **Makers** answer it privately. There is no public order book of prices.
+- The two sides negotiate in a thread and both accept the terms. That creates a **swap** with two legs, one on each chain.
+- Each leg is a **hash time-locked contract (HTLC)** bound to the same `sha256(secret)` hashlock.
+- Claiming one leg reveals the secret on chain, which lets the other leg be claimed. Either both legs settle, or both refund after their timelocks.
+
+The server builds **unsigned** transactions. You sign them with your own key, wallet or HSM. The server never holds your keys or your principal.
+
+## Who it is for
+
+- **Traders** who want to swap BTC for EVM, TRON or Solana assets (and back) without trusting an intermediary.
+- **Market makers** who quote RFQs from a bot, over REST or a WebSocket feed.
+- **Developers and AI agents** who integrate swaps into their own product through the REST API or MCP.
+
+## Three ways in
+
+<CardGroup cols={3}>
+  <Card title="Web app" icon="browser" href="https://dev.hashlock.markets">
+    Sign in with a wallet and trade in the browser.
+  </Card>
+  <Card title="REST API" icon="code" href="/quickstart">
+    `/v1` endpoints with an `hk_` API key. Webhooks and a maker WebSocket feed.
+  </Card>
+  <Card title="MCP" icon="robot" href="/agents/mcp">
+    Connect Claude or any MCP client to `https://dev.hashlock.markets/mcp`.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    From API key to a settled swap, step by step.
+  </Card>
+  <Card title="How it works" icon="diagram-project" href="/concepts/how-it-works">
+    RFQ, negotiation, the two HTLC legs and the secret.
+  </Card>
+</CardGroup>

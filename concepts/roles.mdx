@@ -1,0 +1,41 @@
+---
+title: "Roles"
+description: "Taker, maker, initiator and counterparty — and which leg each one funds."
+---
+
+Two independent pairs of roles apply to every swap.
+
+## Taker and maker (who asked, who answered)
+
+| Role | Does | API scope |
+|---|---|---|
+| **Taker** | Creates the RFQ. | `taker` |
+| **Maker** | Quotes an RFQ, which opens a thread. | `maker` |
+
+The legs are named from the maker's side:
+
+| Leg | Funded by | Received by |
+|---|---|---|
+| `a` | maker (the asset the maker gives) | taker |
+| `b` | taker (the asset the maker wants) | maker |
+
+Both roles use the same endpoints for negotiation and settlement. One API key can hold both scopes.
+
+## Initiator and counterparty (who holds the secret)
+
+| Role | Holds | Funds | Claims |
+|---|---|---|---|
+| **Initiator** | the secret; sends `hashlock` on accept | the **long** leg, first | the short leg, revealing the secret |
+| **Counterparty** | nothing secret | the **short** leg, after the initiator | the long leg, with the revealed secret |
+
+The initiator is not chosen by who asked. It is chosen by the chains: whoever funds the leg on the chain with the longer safe timelock is the initiator. On a tie, the taker (leg `b`) is the initiator. See [HTLC and timelocks](/concepts/htlc-and-timelocks#how-the-server-picks-them).
+
+Example: a taker selling BTC for Sepolia USDT funds the Bitcoin leg (24 h), so the taker is the initiator.
+
+<Tip>
+You learn whether you are the initiator from the thread: the server refuses the initiator's `accept` without a `hashlock`. Treat any refusal that asks for a hashlock as "you are the initiator".
+</Tip>
+
+## The keeper
+
+The **keeper** is a server process. It can submit `claim` and `refund` calls on chains where those calls are permissionless, so a leg settles even if its party is offline. It never receives user principal: a claim pays the leg's fixed recipient, a refund pays the funder. See [Non-custodial guarantees](/concepts/non-custodial).

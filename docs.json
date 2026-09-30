@@ -1,0 +1,164 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Hashlock Markets",
+  "colors": {
+    "primary": "#0071e3",
+    "light": "#3b95ff",
+    "dark": "#0071e3"
+  },
+  "banner": {
+    "content": "Testnets only: Ethereum Sepolia, TRON Nile, Bitcoin signet, Solana devnet. Do not send real funds.",
+    "dismissible": false
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "App",
+        "href": "https://dev.hashlock.markets"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get an API key",
+      "href": "https://dev.hashlock.markets/developers"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/how-it-works",
+              "concepts/htlc-and-timelocks",
+              "concepts/roles",
+              "concepts/settlement-by-chain",
+              "concepts/non-custodial"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/api-keys",
+              "guides/settle-a-leg",
+              "guides/webhooks",
+              "guides/maker-feed",
+              "guides/rate-limits-and-idempotency"
+            ]
+          },
+          {
+            "group": "AI agents",
+            "pages": [
+              "agents/mcp",
+              "agents/agents-without-a-human"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          },
+          {
+            "group": "Account and keys",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/me",
+              "GET /v1/keys/nonce",
+              "POST /v1/keys"
+            ]
+          },
+          {
+            "group": "Wallets",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/wallets/nonce",
+              "POST /v1/wallets/evm",
+              "POST /v1/wallets/tron",
+              "POST /v1/wallets/solana",
+              "POST /v1/wallets/bitcoin",
+              "DELETE /v1/wallets/{address}"
+            ]
+          },
+          {
+            "group": "Market",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/assets",
+              "GET /v1/rfqs",
+              "POST /v1/rfqs",
+              "GET /v1/rfqs/{id}",
+              "POST /v1/rfqs/{id}/cancel",
+              "POST /v1/rfqs/{id}/quotes"
+            ]
+          },
+          {
+            "group": "Negotiation",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/threads/{id}",
+              "POST /v1/threads/{id}/propose",
+              "POST /v1/threads/{id}/accept-proposal",
+              "POST /v1/threads/{id}/accept"
+            ]
+          },
+          {
+            "group": "Swaps and settlement",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/swaps",
+              "GET /v1/swaps/{id}",
+              "api-reference/endpoints/set-swap-address",
+              "POST /v1/swaps/{id}/legs/{leg}/fund",
+              "POST /v1/swaps/{id}/legs/{leg}/claim",
+              "POST /v1/swaps/{id}/legs/{leg}/refund",
+              "POST /v1/tx/broadcast"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "pages": [
+              "GET /v1/webhooks",
+              "api-reference/endpoints/register-webhook",
+              "DELETE /v1/webhooks/{id}",
+              "POST /v1/webhooks/{id}/ping"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "Legal",
+        "items": [
+          {
+            "label": "Terms",
+            "href": "https://dev.hashlock.markets/legal/terms"
+          },
+          {
+            "label": "Privacy",
+            "href": "https://dev.hashlock.markets/legal/privacy"
+          }
+        ]
+      }
+    ]
+  }
+}

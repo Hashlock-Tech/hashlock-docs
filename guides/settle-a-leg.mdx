@@ -1,0 +1,95 @@
+---
+title: "Settle a leg"
+description: "Build unsigned fund, claim and refund transactions, sign them yourself, and broadcast."
+---
+
+Settlement is three builders and one broadcast:
+
+| Endpoint | Returns |
+|---|---|
+| `POST /v1/swaps/{id}/legs/{leg}/fund` | Unsigned funding transaction(s) or payment instructions. |
+| `POST /v1/swaps/{id}/legs/{leg}/claim` | Unsigned claim. Body: `{ "secret": "<32-byte hex>" }`. |
+| `POST /v1/swaps/{id}/legs/{leg}/refund` | Unsigned refund. |
+| `POST /v1/tx/broadcast` | Relays a transaction you signed. Returns `{ "txid" }`. |
+
+`{leg}` is `a` (funded by the maker) or `b` (funded by the taker). Every builder response carries `chain`, `family` and `sign`, which tells you how to sign it.
+
+## Before you fund
+
+- Your **payout** address on the leg you receive, and your **refund** address on the leg you fund, must be set: `POST /v1/swaps/{id}/address`. The fund builder refuses a leg that has no payout address.
+- The **initiator funds first**. Building the counterparty's funding is refused until the initiator's leg is funded.
+
+## Builder gates
+
+| Builder | Refused until |
+|---|---|
+| fund | the initiator's leg is funded (for the counterparty's leg), and the leg has a payout address |
+| claim | both legs are funded (status `counterparty_funded`, `initiator_claimed` or `counterparty_claimed`) |
+| refund | the leg's timelock has passed. On Bitcoin, the chain's median time past must also have passed it. |
+
+The claim gate exists because claiming publishes the secret. Publishing it before the counterparty has funded would let them take your leg and refund their own.
+
+## Per chain
+
+<Tabs>
+  <Tab title="EVM">
+    `sign: "evm-tx"`. Response: `chainId`, `txs` (each `{ to, data, value }`, `value` in hex wei), and for fund also `from`.
+
+    - Fund: for an ERC-20, an `approve` then `createSwap`; for native coin, one `createSwap` with value. Sign **every** transaction from `from` — the factory refuses any other sender.
+    - Claim: `claim(secret)` on the leg's clone. Refund: `refund()`.
+    - Broadcast: `{ "chain": "evm", "signed": "0x<raw signed tx>" }`. The network is taken from the chain id inside the signed transaction; a chain id this deployment does not serve is refused, and so is a transaction with no chain id.
+
+    ```typescript
+    const signed = await wallet.signTransaction(
+      await wallet.prepareTransactionRequest({ account, to: tx.to, data: tx.data, value: BigInt(tx.value) }),
+    );
+    await fetch(`${HL}/v1/tx/broadcast`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${HK}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ chain: 'evm', signed }),
+    });
+    ```
+  </Tab>
+  <Tab title="Bitcoin">
+    - Fund: `sign: "btc-payment"`. Pay `amountSats` to `payTo` from any wallet. If `feePayTo` and `feeAmountSats` are present, pay those too — ideally as a second output of the same transaction, otherwise as a separate transfer from the same wallet. Broadcast through your wallet or `{ "chain": "bitcoin", "signed": "<raw tx hex>" }`.
+    - Claim / refund: `sign: "btc-sighash"`. The response carries `psbtBase64` and `sighashHexes`. Sign **each** sighash with secp256k1 using the key in the escrow script, then broadcast:
+
+      ```json
+      { "chain": "bitcoin", "signed": { "psbtBase64": "…", "signaturesHex": ["…"], "preimageHex": "…" } }
+      ```
+
+      Include `preimageHex` for a claim; omit it for a refund. The server assembles the witness. A single-input escrow may send `signatureHex` instead of `signaturesHex`.
+    - A refund is only relayable once the chain's median time past has passed the timelock — roughly an hour behind real time.
+    - Refunding an escrow the leg moved off: add `?escrow=<address>` to the refund call. An address that was never this leg's escrow is refused.
+  </Tab>
+  <Tab title="TRON">
+    `sign: "tron-txid"`. Response: `transactions`, a list of unsigned TRON transaction objects.
+
+    - Fund: `approve` then `fund`. Claim / refund: one transaction.
+    - Sign each transaction's `txID` with secp256k1, then broadcast the signed object: `{ "chain": "tron", "signed": { … } }`.
+  </Tab>
+  <Tab title="Solana">
+    `sign: "solana-tx"`. Response: a base64 transaction composed by the server, plus the `escrow` address.
+
+    - Fund and refund are signed by the funder key; claim by the recipient key.
+    - Broadcast: `{ "chain": "solana", "signed": "<base64 signed tx>" }`.
+    - The blockhash expires in about a minute. Rebuild if it does.
+  </Tab>
+</Tabs>
+
+## Idempotency and timeouts
+
+Send an `Idempotency-Key` header on the builders and on broadcast. The first call runs; a retry with the same key and body replays the stored response with `Idempotency-Replayed: true`.
+
+A **`504`** is different, and is **not** remembered by the idempotency key, so a retry with the same key really retries:
+
+- On the **builders** and on `/swaps/{id}/address`, `504` means a chain or explorer read of ours ran out of time. **Nothing was changed.** Retry.
+- On **`/tx/broadcast`**, `504` means the node did not answer in time. The transaction **may already be broadcast**. Look the txid up before sending it again. Resending the same signed bytes produces the same txid.
+
+A node's own rejection (nonce too low, insufficient funds, already known) comes back as `400` with the node's message.
+
+See [Rate limits and idempotency](/guides/rate-limits-and-idempotency).
+
+## After the claim
+
+Once the initiator claims, the secret is on chain. The counterparty claims the other leg with it — using the claim builder with that secret — or, on EVM, TRON and Solana, the keeper may claim it for them. Track progress with `GET /v1/swaps/{id}` or [webhooks](/guides/webhooks).

@@ -1,0 +1,102 @@
+---
+title: "Maker feed"
+description: "A WebSocket that streams the RFQs you can quote, and takes your quotes back."
+---
+
+Polling `GET /v1/rfqs` will not win you flow. The maker feed streams every RFQ you are eligible for and accepts quotes on the same socket.
+
+```text
+wss://api-dev.hashlock.markets/v1/ws
+```
+
+## Handshake
+
+Connect, then send your API key as the **first frame**. Nothing else is accepted until you do.
+
+```json
+{ "apiKey": "hk_test_..." }
+```
+
+The key needs the `maker` scope. On success you get a snapshot, then a readiness marker:
+
+```json
+{ "type": "snapshot", "rfqs": [ ... ] }
+{ "type": "ready" }
+```
+
+- The snapshot is the **public** book only, at most **100** entries, newest first. For more, page `GET /v1/rfqs?cursor=…` after connecting.
+- An RFQ created while the snapshot was built may appear in both the snapshot and the stream. Frames carry the RFQ id; key on it and the duplicate is a no-op.
+- A socket that has not started authenticating within **30 seconds** is closed.
+- Handshake attempts are limited to 30 per minute per key.
+
+## The stream
+
+Two kinds of frame, and only two:
+
+```json
+{ "type": "rfq", "kind": "created",   "rfq": { ... } }
+{ "type": "rfq", "kind": "cancelled", "rfq": { ... } }
+```
+
+An RFQ also leaves the book when it **expires** or is **agreed** with another maker. Neither emits a frame. A book kept purely from the stream therefore drifts: it keeps orders nobody can take any more, and quoting one is rejected. Reconcile with a fresh snapshot (reconnect), or check `GET /v1/rfqs/{id}` before committing to a price.
+
+## What reaches you
+
+- Public RFQs.
+- Private RFQs addressed to an address on your account. Matching follows each encoding: EVM hex and bech32 (`bc1…` / `tb1…`) compare case-insensitively; base58check (TRON, legacy Bitcoin) does not.
+- Never your own orders, in the snapshot or the stream.
+
+<Warning>
+**Private orders arrive only on the live stream.** They are link-only, so they are absent from the snapshot and from `GET /v1/rfqs`, and no endpoint lists the ones addressed to you. A private order sent while your socket was down is not recoverable. If you trade private flow, stay connected.
+</Warning>
+
+## Quoting
+
+Send the quote down the same socket. No HTTP round-trip, no second authentication. `quoteAmount` is in base units.
+
+```json
+{ "quote": { "rfqId": "…", "quoteAmount": "1500000000", "idempotencyKey": "q-123" } }
+```
+
+Reply:
+
+```json
+{ "type": "quoted", "rfqId": "…", "threadId": "…" }
+```
+
+- `idempotencyKey` is optional. A retry with the same key gets the first answer back instead of a second quote. The same key with a different quote is refused.
+- Quotes on the socket spend from the **same rate budget** as REST calls with that key.
+- The `threadId` is a negotiation thread: continue with `GET /v1/threads/{id}` and the propose/accept endpoints. `POST /v1/rfqs/{id}/quotes` does the same over REST.
+
+## Errors
+
+Errors arrive as `{ "type": "error", "error": "…" }` and do **not** close the socket.
+
+## Operating it
+
+- **No resume, nothing replayed.** Detect a dead socket and reconnect. The fresh snapshot is your recovery for the public book, with its two limits: 100 entries and no private orders.
+- The server sends protocol-level WebSocket pings every 30 seconds and drops a peer that has not answered the previous one. Standard clients answer pings automatically. There is no application-level heartbeat message.
+- At most 20 open sockets per client IP. Frames larger than 64 KiB are rejected.
+- This socket is not a settlement log. For what happened to your swaps, use [webhooks](/guides/webhooks).
+
+## Example (Node)
+
+```typescript
+import WebSocket from 'ws';
+
+const ws = new WebSocket('wss://api-dev.hashlock.markets/v1/ws');
+const book = new Map<string, unknown>();
+
+ws.on('open', () => ws.send(JSON.stringify({ apiKey: process.env.HASHLOCK_API_KEY })));
+ws.on('message', (raw) => {
+  const msg = JSON.parse(raw.toString());
+  if (msg.type === 'snapshot') for (const r of msg.rfqs) book.set(r.id, r);
+  if (msg.type === 'rfq') {
+    if (msg.kind === 'created') book.set(msg.rfq.id, msg.rfq);
+    else book.delete(msg.rfq.id);
+  }
+  if (msg.type === 'quoted') console.log('thread', msg.threadId);
+  if (msg.type === 'error') console.error(msg.error);
+});
+ws.on('close', () => { /* reconnect and re-snapshot */ });
+```

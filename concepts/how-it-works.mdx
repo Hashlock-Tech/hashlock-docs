@@ -1,0 +1,58 @@
+---
+title: "How it works"
+description: "Sealed RFQ, negotiation thread, agreed swap, two HTLC legs, and the secret that settles both."
+---
+
+A swap moves through five stages.
+
+<Steps>
+  <Step title="Sealed RFQ">
+    A taker posts a request for quote: which asset, how much, which asset in return, and how long the request lives (`ttlSeconds`). Makers see the RFQ and answer with a price. Prices are not published on a public book.
+
+    A `private` RFQ carries the creator's asking price and is reachable by link only. It can be addressed to one wallet (`targetAddress`), in which case only an account holding that wallet can answer it.
+  </Step>
+  <Step title="Negotiation thread">
+    A maker's quote opens a **thread** between the two parties. Either side can propose a new price (`propose`) and the other can take it (`accept-proposal`). Every accept names the price the caller read, and is refused if the terms moved since.
+  </Step>
+  <Step title="Agreed swap">
+    Both sides `accept` the current terms. The **initiator** sends `hashlock = sha256(secret)` with their accept; only the hash leaves their machine. When both have accepted, the swap is created with two legs, each with its chain, amount, and timelock.
+  </Step>
+  <Step title="Two HTLC legs">
+    Each party sets its payout and refund addresses, then funds the leg it gives. The initiator funds first, on the leg with the **longer** timelock. The counterparty funds the other leg after that. Both escrows are locked to the same hashlock.
+  </Step>
+  <Step title="Claim reveals the secret">
+    The initiator claims the leg they receive on by presenting the secret. That puts the secret on chain. The counterparty — or the keeper on their behalf, where the chain allows it — uses the same secret to claim the other leg. Funds can only go to each leg's fixed recipient.
+  </Step>
+</Steps>
+
+If a leg is never claimed, its funder can refund it after its timelock. The timelocks are ordered so that the counterparty always has time to claim after the secret is revealed. See [HTLC and timelocks](/concepts/htlc-and-timelocks).
+
+## Swap statuses
+
+`GET /v1/swaps/{id}` returns the swap's `status`. The values are:
+
+| Status | Meaning |
+|---|---|
+| `agreed` | Both sides accepted. Nothing funded yet. |
+| `initiator_funded` | The initiator's (long) leg is funded. |
+| `counterparty_funded` | Both legs are funded. Claims can be built. |
+| `initiator_claimed` | The initiator claimed their receive leg; the secret is public. |
+| `counterparty_claimed` | The counterparty's claim landed. |
+| `refunding`, `refunded` | A refund is in progress or done. |
+| `expired`, `failed` | The swap did not complete. |
+
+<Note>
+`counterparty_claimed` can also appear before the initiator has claimed their own leg — for example when the counterparty collected first. The initiator can still claim their leg in that state.
+</Note>
+
+## Where each step lives in the API
+
+| Step | Endpoint |
+|---|---|
+| Create / cancel an RFQ | `POST /v1/rfqs`, `POST /v1/rfqs/{id}/cancel` |
+| Discover RFQs | `GET /v1/rfqs`, or the [maker feed](/guides/maker-feed) |
+| Quote | `POST /v1/rfqs/{id}/quotes` |
+| Negotiate | `GET /v1/threads/{id}`, `POST …/propose`, `POST …/accept-proposal`, `POST …/accept` |
+| Addresses | `POST /v1/swaps/{id}/address` |
+| Settle | `POST /v1/swaps/{id}/legs/{leg}/fund`, `…/claim`, `…/refund`, `POST /v1/tx/broadcast` |
+| Track | `GET /v1/swaps/{id}`, [webhooks](/guides/webhooks) |

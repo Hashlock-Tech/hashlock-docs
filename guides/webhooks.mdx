@@ -1,0 +1,95 @@
+---
+title: "Webhooks"
+description: "Swap lifecycle events pushed to your HTTPS endpoint, signed with HMAC-SHA256."
+---
+
+The [maker feed](/guides/maker-feed) tells you what to quote. Webhooks tell you what happened to your swaps.
+
+## Register
+
+```bash
+curl -s -X POST $HL/v1/webhooks -H "Authorization: Bearer $HK" \
+  -H "content-type: application/json" \
+  -d '{ "url": "https://example.com/hashlock", "events": ["swap.funded", "swap.settled"] }'
+```
+
+Response (`201`): `{ "webhook": { id, url, events, enabled }, "secret": "whsec_…" }`. **The secret is shown once.** Store it; you need it to verify deliveries.
+
+- `url` must be `https`. A non-public address literal is rejected at registration. A hostname that resolves into a private range registers, but every delivery to it fails (visible only as `lastStatus`).
+- Omit `events`, or send an empty list, to receive all events.
+
+Other calls: `GET /v1/webhooks` (list, secret not shown), `DELETE /v1/webhooks/{id}`, `POST /v1/webhooks/{id}/ping` (sends a test `ping` delivery, returns `{ ok, deliveryId }`).
+
+## Events
+
+Events go to the webhooks of **both** parties of a swap.
+
+| Event | When | Payload fields |
+|---|---|---|
+| `quote.created` | A maker quoted an RFQ. | `threadId`, `rfqId`, `quoteAmount` |
+| `swap.agreed` | Both sides accepted; the swap exists. | `swapId`, `threadId` |
+| `swap.funded` | A leg was funded (status `initiator_funded` or `counterparty_funded`). | `swapId`, `status` |
+| `secret.revealed` | The initiator claimed; the secret is public (status `initiator_claimed`). | `swapId`, `status` |
+| `swap.settled` | The counterparty's claim landed (status `counterparty_claimed`). | `swapId`, `status` |
+| `swap.refunded` | A leg was refunded (status `refunded`). | `swapId`, `status` |
+| `ping` | Sent by `POST /v1/webhooks/{id}/ping`. | `message` |
+
+Every body also has `type` (the event name), `deliveryId` and `createdAt`. Payloads are minimal: fetch full detail from `GET /v1/swaps/{id}`.
+
+Handle an unknown `type` by returning `2xx`, not an error.
+
+## Delivery
+
+Each delivery is a `POST` with a JSON body and these headers:
+
+| Header | Value |
+|---|---|
+| `content-type` | `application/json` |
+| `user-agent` | `Hashlock-Webhooks/1` |
+| `x-hashlock-event` | the event name |
+| `x-hashlock-delivery` | the delivery id |
+| `x-hashlock-timestamp` | Unix time in seconds, as a string |
+| `x-hashlock-signature` | `sha256=<hex>` |
+
+Delivery does not follow redirects and times out after 10 seconds.
+
+## Verify the signature
+
+The signature is `HMAC-SHA256(secret, "<timestamp>.<body>")`, hex-encoded, where:
+
+- `secret` is the full `whsec_…` string from registration, used as the HMAC key as-is;
+- `timestamp` is the `x-hashlock-timestamp` header;
+- `body` is the **raw** request body, byte for byte. Do not re-serialize parsed JSON.
+
+```typescript
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import express from 'express';
+
+const SECRET = process.env.HASHLOCK_WEBHOOK_SECRET!; // "whsec_…"
+const app = express();
+
+app.post('/hashlock', express.raw({ type: 'application/json' }), (req, res) => {
+  const ts = req.header('x-hashlock-timestamp') ?? '';
+  const sig = req.header('x-hashlock-signature') ?? '';
+  const body = (req.body as Buffer).toString('utf8');
+
+  const expected = 'sha256=' + createHmac('sha256', SECRET).update(`${ts}.${body}`).digest('hex');
+  const ok = sig.length === expected.length && timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  if (!ok) return res.status(401).end();
+
+  // Replay protection: reject timestamps older than your own tolerance.
+  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return res.status(401).end();
+
+  const event = JSON.parse(body);
+  // handle event.type …
+  res.status(204).end();
+});
+```
+
+The 300-second window above is an example value for your receiver, not a server setting.
+
+## Retries are best-effort
+
+A non-`2xx` or a timeout is retried after 15 s, 30 s, 60 s, 120 s and 240 s — **6 attempts over 7 m 45 s** — and then dropped. There is no redelivery endpoint and no delivery log beyond `lastStatus` (and `lastDeliveryAt`) on `GET /v1/webhooks`.
+
+If your receiver is down longer than that, you lose events. Treat `GET /v1/swaps/{id}` as the authoritative state and reconcile against it; do not treat webhooks as the record.

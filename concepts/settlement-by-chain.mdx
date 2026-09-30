@@ -1,0 +1,46 @@
+---
+title: "Settlement by chain"
+description: "How the HTLC escrow is built on Bitcoin, EVM, TRON and Solana."
+---
+
+Every rail keeps the same rules: `sha256(secret)` hashlock, recipient fixed when the leg is funded, claim pays only the recipient, refund only after the timelock. What differs is where the escrow lives.
+
+The builder response names how to sign it in its `sign` field.
+
+## Bitcoin — P2WSH script
+
+- The escrow is a **P2WSH** (SegWit) address. Its redeem script has two branches:
+  - **claim**: the receiver's signature plus a preimage whose `OP_SHA256` matches the hashlock;
+  - **refund**: the sender's signature after the timelock (`OP_CHECKLOCKTIMEVERIFY`).
+- Each side's settlement "address" on a Bitcoin leg is a **compressed public key** (hex). The server derives the P2WSH once both keys are set.
+- **Fund** (`sign: "btc-payment"`): pay `amountSats` to `payTo`. When the leg carries the protocol fee, the response also has `feePayTo` and `feeAmountSats`; pay both, in one transaction if your wallet can, otherwise as a second transfer from the same wallet. The leg does not count as funded otherwise.
+- **Claim / refund** (`sign: "btc-sighash"`): the server prepares the spend as a PSBT and returns one sighash per swept input. Sign each with secp256k1 and broadcast `{ psbtBase64, signaturesHex, preimageHex }`. Omit `preimageHex` to take the refund branch. The spend pays the P2WPKH of the key in the script branch being spent.
+- The keeper does **not** auto-claim Bitcoin legs: a claim needs the receiver's signature.
+
+## EVM — one clone per swap from a factory
+
+- `HTLCFactory` deploys one **minimal-proxy clone** of `HTLCImplementation` per swap and funds it in the same transaction.
+- The swap parameters (hashlock, recipient, token, amount, timelock, initiator, fee) are **immutable args** in the clone's bytecode. There is no `initialize()` call to front-run.
+- The clone's address is deterministic (CREATE2), so a counterparty can check the exact escrow before funding their own leg.
+- Native coin and ERC-20 are both supported; `token = address(0)` means native. An ERC-20 leg is an `approve` followed by `createSwap`.
+- **Fund** (`sign: "evm-tx"`): the response carries `chainId`, `from` and `txs`. Sign every transaction from `from` — the leg's refund address. The factory refuses any other sender, and the escrow refunds to it.
+- `claim(secret)` is callable by anyone and always pays the fixed recipient. `refund()` pays the initiator after the timelock.
+- The protocol fee, when a leg carries it, goes to a treasury address held in the contract, in the same `createSwap` transaction, on top of the amount. The fee is part of the clone's identity: an escrow funded with a different fee is a different address.
+
+## TRON — shared pool contract
+
+- TRON has no cheap clone pattern in practice, so a shared `SharedHTLC` contract holds many swaps in a mapping.
+- **Fund** (`sign: "tron-txid"`): two transactions, `approve(pool, amount + fee)` then `fund(...)`. Sign each `txID` with secp256k1 and broadcast the signed transaction objects.
+- `claim` and `refund` take the on-chain swap id the pool emitted at funding. The builders read it for you.
+- When the pool is rotated, new swaps go to the new pool and the old one keeps honoring claim and refund until its timelocks lapse. The builders settle in the pool the leg was funded in.
+
+## Solana — program with a PDA escrow
+
+- A Hashlock HTLC program holds each escrow in a **PDA derived from the agreed terms**. An escrow funded on any other terms is a different address.
+- Classic SPL tokens and native SOL are supported, as separate instructions. Token-2022 mints are not.
+- **Fund / claim / refund** (`sign: "solana-tx"`): the server composes the transaction and returns it base64. Sign it with the funder key (fund, refund) or the recipient key (claim) and broadcast the base64 signed transaction. The blockhash expires in about a minute; rebuild if it does.
+- Escrow accounts are never closed, so a settled swap cannot be funded again. The funder pays their rent, which is not returned.
+
+## Timelock floor
+
+The EVM factory, the TRON pool and the Solana program each refuse a timelock shorter than 30 minutes.

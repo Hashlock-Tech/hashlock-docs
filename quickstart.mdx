@@ -1,0 +1,215 @@
+---
+title: "Quickstart"
+description: "From an API key to a settled swap over the /v1 REST API."
+---
+
+<Warning>
+Sandbox only: `https://api-dev.hashlock.markets` settles on testnets (Sepolia, TRON Nile, Bitcoin signet, Solana devnet). Use dedicated testnet keys.
+</Warning>
+
+This walks one swap end to end over REST. The server builds unsigned transactions; **you sign every transaction yourself**. The server never signs anything that moves your funds.
+
+All amounts are **base-unit integer strings** (satoshis, wei, token base units).
+
+```bash
+export HL=https://api-dev.hashlock.markets
+```
+
+## 1. Get an API key
+
+Pick one path.
+
+<Tabs>
+  <Tab title="Web page">
+    Sign in at [dev.hashlock.markets/developers](https://dev.hashlock.markets/developers) and create a key. It is shown once.
+  </Tab>
+  <Tab title="Wallet signature (agents)">
+    No browser needed. Get a nonce, sign a message with the wallet, post it.
+
+    ```typescript
+    import { privateKeyToAccount } from 'viem/accounts';
+
+    const HL = 'https://api-dev.hashlock.markets';
+    const account = privateKeyToAccount(process.env.EVM_KEY as `0x${string}`);
+
+    const { nonce } = await (await fetch(`${HL}/v1/keys/nonce`)).json();
+    const message = [
+      'Hashlock Markets — create an API key.',
+      '',
+      `Address: ${account.address}`,
+      'Key name: my-bot',
+      'Scopes: read, taker, maker',
+      `Nonce: ${nonce}`,
+    ].join('\n');
+
+    const signature = await account.signMessage({ message }); // personal_sign / EIP-191
+    const res = await fetch(`${HL}/v1/keys`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rail: 'evm', address: account.address, message, signature }),
+    });
+    const { key, expiresAt } = await res.json(); // key = "hk_test_…", shown once
+    ```
+
+    See [API keys](/guides/api-keys) for the message rules, other chains and key limits.
+  </Tab>
+</Tabs>
+
+Check the key:
+
+```bash
+curl -s $HL/v1/me -H "Authorization: Bearer $HK"
+```
+
+The response lists your scopes and, per chain, your `login` wallet and the wallets you have `proven`.
+
+## 2. Prove the wallets you will give from
+
+To create an order that **gives** an asset, your account needs a proven wallet on that asset's chain. A key starts with only the address its account signed in with.
+
+```typescript
+const { nonce } = await (await fetch(`${HL}/v1/wallets/nonce`, { headers: { Authorization: `Bearer ${HK}` } })).json();
+const message = `Hashlock Markets — link this wallet.\n\nAddress: ${account.address}\nNonce: ${nonce}`;
+const signature = await account.signMessage({ message });
+await fetch(`${HL}/v1/wallets/evm`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${HK}`, 'content-type': 'application/json' },
+  body: JSON.stringify({ address: account.address, message, signature }),
+});
+```
+
+TRON, Solana and Bitcoin use `POST /v1/wallets/tron|solana|bitcoin`. See [API keys](/guides/api-keys#proving-wallets).
+
+## 3. Create an RFQ (taker) or quote one (maker)
+
+List assets to get their ids:
+
+```bash
+curl -s $HL/v1/assets -H "Authorization: Bearer $HK"
+```
+
+**Taker** — create an RFQ (needs the `taker` scope):
+
+```bash
+curl -s -X POST $HL/v1/rfqs \
+  -H "Authorization: Bearer $HK" -H "content-type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "direction": "sell_base",
+    "baseAssetId": "<asset uuid>",
+    "baseAmount": "50000000",
+    "quoteAssetId": "<asset uuid>",
+    "ttlSeconds": 900,
+    "visibility": "public"
+  }'
+```
+
+`sell_base` means you give the base asset. `buy_base` means you receive it. A `private` order needs an `askAmount` and is reachable by link only; it can name a `targetAddress`.
+
+**Maker** — quote an RFQ (needs the `maker` scope). This opens a negotiation thread:
+
+```bash
+curl -s -X POST $HL/v1/rfqs/$RFQ_ID/quotes \
+  -H "Authorization: Bearer $HK" -H "content-type: application/json" \
+  -d '{ "quoteAmount": "1500000000" }'
+```
+
+Makers can also stream RFQs and quote over the [maker feed](/guides/maker-feed).
+
+## 4. Negotiate and accept
+
+Read the thread, counter if you want, then accept at the price you read.
+
+```bash
+curl -s $HL/v1/threads/$THREAD_ID -H "Authorization: Bearer $HK"
+
+# counter
+curl -s -X POST $HL/v1/threads/$THREAD_ID/propose -H "Authorization: Bearer $HK" \
+  -H "content-type: application/json" -d '{ "quoteAmount": "1490000000" }'
+
+# accept the other side's pending price (must equal pendingAmount)
+curl -s -X POST $HL/v1/threads/$THREAD_ID/accept-proposal -H "Authorization: Bearer $HK" \
+  -H "content-type: application/json" -d '{ "quoteAmount": "1490000000" }'
+```
+
+Accepting the terms **commits and cannot be undone**. The **initiator** — the party who funds the long leg, see [Roles](/concepts/roles) — must also send `hashlock = sha256(secret)`:
+
+```typescript
+import { randomBytes, createHash } from 'node:crypto';
+
+const secret = randomBytes(32);                                  // keep this private and safe
+const hashlock = createHash('sha256').update(secret).digest('hex'); // 64 hex chars, no 0x
+
+await fetch(`${HL}/v1/threads/${threadId}/accept`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${HK}`, 'content-type': 'application/json' },
+  body: JSON.stringify({ quoteAmount: currentQuoteAmount, hashlock }),
+});
+```
+
+When **both** sides have accepted, the response includes the new `swap`.
+
+## 5. Set settlement addresses
+
+For each chain of the swap, set your address. On the chain you receive on it is your **payout** address; on the chain you fund it is your **refund** address. For Bitcoin, send the **compressed public key** (hex); the server derives the P2WSH escrow once both sides are set.
+
+```bash
+curl -s -X POST $HL/v1/swaps/$SWAP_ID/address -H "Authorization: Bearer $HK" \
+  -H "content-type: application/json" \
+  -d '{ "chain": "ethereum", "address": "0xYourAddress" }'
+```
+
+Pass `"leg": "a"` or `"b"` only when both legs are on the same chain. Over the API, an address that **receives** money must be your login wallet or one proven from a signed-in web session — see [API keys](/guides/api-keys#payout-addresses).
+
+## 6. Fund your leg
+
+The maker funds leg `a`; the taker funds leg `b`. The initiator funds first: the counterparty's fund builder refuses until the initiator's leg is funded.
+
+```bash
+curl -s -X POST $HL/v1/swaps/$SWAP_ID/legs/$MY_FUND_LEG/fund -H "Authorization: Bearer $HK"
+```
+
+The response is chain-specific signing material. Sign it locally and broadcast. For an EVM leg:
+
+```typescript
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { sepolia } from 'viem/chains';
+
+const build = await (await fetch(`${HL}/v1/swaps/${swapId}/legs/${myFundLeg}/fund`, {
+  method: 'POST', headers: { Authorization: `Bearer ${HK}` },
+})).json();
+// { sign: 'evm-tx', chainId, from, txs: [{ to, data, value /* hex wei */ }, ...] }
+// Sign every tx from `build.from` — the factory refuses any other sender.
+const wallet = createWalletClient({ account, chain: sepolia, transport: http() });
+const reader = createPublicClient({ chain: sepolia, transport: http() });
+
+for (const tx of build.txs) {
+  const request = await wallet.prepareTransactionRequest({
+    account, to: tx.to, data: tx.data, value: BigInt(tx.value),
+  });
+  const signed = await wallet.signTransaction(request);
+  const { txid } = await (await fetch(`${HL}/v1/tx/broadcast`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${HK}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ chain: 'evm', signed }),
+  })).json();
+  await reader.waitForTransactionReceipt({ hash: txid }); // an ERC-20 approve must land before createSwap
+}
+```
+
+<Note>
+Check each transaction from the build response before signing. Per-chain shapes (Bitcoin, TRON, Solana) are in [Settle a leg](/guides/settle-a-leg).
+</Note>
+
+## 7. Claim
+
+Once both legs are funded, the initiator claims the leg they receive on (the maker receives on leg `b`, the taker on leg `a`). That reveals the secret on chain.
+
+```bash
+curl -s -X POST $HL/v1/swaps/$SWAP_ID/legs/$MY_RECEIVE_LEG/claim -H "Authorization: Bearer $HK" \
+  -H "content-type: application/json" -d '{ "secret": "<32-byte hex preimage>" }'
+```
+
+Sign and broadcast as in step 6. The counterparty then claims the other leg with the now-public secret. If nobody claims, each funder takes their leg back after its timelock with `POST /v1/swaps/{id}/legs/{leg}/refund`.
+
+Track state with `GET /v1/swaps/{id}` or [webhooks](/guides/webhooks).
