@@ -11,7 +11,7 @@
     "content": "Pre-launch: the public API and app are not open yet. Join the waitlist at [hashlock.markets](https://hashlock.markets).",
     "dismissible": false
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "navbar": {
     "links": [
       {
