@@ -17,13 +17,13 @@ There are two ways to run it.
 ## Hosted, by URL
 
 ```text
-https://dev.hashlock.markets/mcp
+https://hashlock.markets/mcp
 ```
 
 Add this URL to your MCP client (Claude, ChatGPT, or any client with Streamable HTTP). Nothing else. The client discovers that it needs authorization, sends you to Hashlock to sign in and approve, and receives its own key.
 
 - Approving takes a **signature from your wallet**. A signed-in session alone grants nothing.
-- The grant appears under [Developers](https://dev.hashlock.markets/developers) as an ordinary API key. It expires after 90 days, you are told in Telegram (when linked) whenever one is created, and you can revoke it there.
+- The grant appears under [Developers](https://hashlock.markets/developers) as an ordinary API key. It expires after 90 days, you are told in Telegram (when linked) whenever one is created, and you can revoke it there.
 - Clients that do not speak OAuth can send a key they created themselves: `Authorization: Bearer hk_…`.
 
 <Accordion title="How the OAuth flow works">

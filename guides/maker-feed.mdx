@@ -6,7 +6,7 @@ description: "A WebSocket that streams the RFQs you can quote, and takes your qu
 Polling `GET /v1/rfqs` will not win you flow. The maker feed streams every RFQ you are eligible for and accepts quotes on the same socket.
 
 ```text
-wss://api-dev.hashlock.markets/v1/ws
+wss://api.hashlock.markets/v1/ws
 ```
 
 ## Handshake
@@ -84,7 +84,7 @@ Errors arrive as `{ "type": "error", "error": "…" }` and do **not** close the 
 ```typescript
 import WebSocket from 'ws';
 
-const ws = new WebSocket('wss://api-dev.hashlock.markets/v1/ws');
+const ws = new WebSocket('wss://api.hashlock.markets/v1/ws');
 const book = new Map<string, unknown>();
 
 ws.on('open', () => ws.send(JSON.stringify({ apiKey: process.env.HASHLOCK_API_KEY })));

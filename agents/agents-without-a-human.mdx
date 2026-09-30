@@ -17,7 +17,7 @@ flowchart LR
 ```typescript
 import { privateKeyToAccount } from 'viem/accounts';
 
-const HL = 'https://api-dev.hashlock.markets';
+const HL = 'https://api.hashlock.markets';
 const account = privateKeyToAccount(process.env.AGENT_EVM_KEY as `0x${string}`);
 
 const { nonce } = await (await fetch(`${HL}/v1/keys/nonce`)).json();
@@ -53,7 +53,7 @@ What to know:
 
 <Tabs>
   <Tab title="Hosted MCP">
-    Point an MCP client at `https://dev.hashlock.markets/mcp` and send the key as a bearer token instead of doing OAuth:
+    Point an MCP client at `https://hashlock.markets/mcp` and send the key as a bearer token instead of doing OAuth:
 
     ```text
     Authorization: Bearer hk_test_...

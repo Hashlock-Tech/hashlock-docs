@@ -15,5 +15,6 @@ npx mint broken-links # internal link check
 - `docs.json` — site config and navigation
 - `index.mdx`, `quickstart.mdx` — get started
 - `concepts/`, `guides/`, `agents/` — documentation pages
-- `api-reference/introduction.mdx` — API overview; endpoint pages are generated from the live
-  OpenAPI spec at `https://dev.hashlock.markets/api/v1/openapi.json`
+- `api-reference/introduction.mdx` — API overview; endpoint pages are generated from
+  `api-reference/openapi.json`, a copy of the API's own spec with the production server only.
+  Refresh it from the API whenever endpoints change, and keep `servers` production-only.

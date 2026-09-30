@@ -4,7 +4,7 @@ description: "From an API key to a settled swap over the /v1 REST API."
 ---
 
 <Warning>
-Sandbox only: `https://api-dev.hashlock.markets` settles on testnets (Sepolia, TRON Nile, Bitcoin signet, Solana devnet). Use dedicated testnet keys.
+Hashlock Markets is pre-launch: the public API at `https://api.hashlock.markets` is not open yet. The steps below are exactly what you will run once it is.
 </Warning>
 
 This walks one swap end to end over REST. The server builds unsigned transactions; **you sign every transaction yourself**. The server never signs anything that moves your funds.
@@ -12,7 +12,7 @@ This walks one swap end to end over REST. The server builds unsigned transaction
 All amounts are **base-unit integer strings** (satoshis, wei, token base units).
 
 ```bash
-export HL=https://api-dev.hashlock.markets
+export HL=https://api.hashlock.markets
 ```
 
 ## 1. Get an API key
@@ -21,7 +21,7 @@ Pick one path.
 
 <Tabs>
   <Tab title="Web page">
-    Sign in at [dev.hashlock.markets/developers](https://dev.hashlock.markets/developers) and create a key. It is shown once.
+    Sign in at [hashlock.markets/developers](https://hashlock.markets/developers) and create a key. It is shown once.
   </Tab>
   <Tab title="Wallet signature (agents)">
     No browser needed. Get a nonce, sign a message with the wallet, post it.
@@ -29,7 +29,7 @@ Pick one path.
     ```typescript
     import { privateKeyToAccount } from 'viem/accounts';
 
-    const HL = 'https://api-dev.hashlock.markets';
+    const HL = 'https://api.hashlock.markets';
     const account = privateKeyToAccount(process.env.EVM_KEY as `0x${string}`);
 
     const { nonce } = await (await fetch(`${HL}/v1/keys/nonce`)).json();

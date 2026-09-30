@@ -8,20 +8,20 @@
     "dark": "#0071e3"
   },
   "banner": {
-    "content": "Testnets only: Ethereum Sepolia, TRON Nile, Bitcoin signet, Solana devnet. Do not send real funds.",
+    "content": "Pre-launch: the public API and app are not open yet. Join the waitlist at [hashlock.markets](https://hashlock.markets).",
     "dismissible": false
   },
   "navbar": {
     "links": [
       {
         "label": "App",
-        "href": "https://dev.hashlock.markets"
+        "href": "https://hashlock.markets"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Get an API key",
-      "href": "https://dev.hashlock.markets/developers"
+      "href": "https://hashlock.markets/developers"
     }
   },
   "navigation": {
@@ -76,7 +76,7 @@
           },
           {
             "group": "Account and keys",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/me",
               "GET /v1/keys/nonce",
@@ -85,7 +85,7 @@
           },
           {
             "group": "Wallets",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/wallets/nonce",
               "POST /v1/wallets/evm",
@@ -97,7 +97,7 @@
           },
           {
             "group": "Market",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/assets",
               "GET /v1/rfqs",
@@ -109,7 +109,7 @@
           },
           {
             "group": "Negotiation",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/threads/{id}",
               "POST /v1/threads/{id}/propose",
@@ -119,7 +119,7 @@
           },
           {
             "group": "Swaps and settlement",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/swaps",
               "GET /v1/swaps/{id}",
@@ -132,7 +132,7 @@
           },
           {
             "group": "Webhooks",
-            "openapi": "https://dev.hashlock.markets/api/v1/openapi.json",
+            "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/webhooks",
               "api-reference/endpoints/register-webhook",
@@ -151,11 +151,11 @@
         "items": [
           {
             "label": "Terms",
-            "href": "https://dev.hashlock.markets/legal/terms"
+            "href": "https://hashlock.markets/legal/terms"
           },
           {
             "label": "Privacy",
-            "href": "https://dev.hashlock.markets/legal/privacy"
+            "href": "https://hashlock.markets/legal/privacy"
           }
         ]
       }

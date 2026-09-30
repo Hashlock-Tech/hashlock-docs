@@ -9,7 +9,7 @@ Every `/v1` call (except minting a key) needs an API key:
 Authorization: Bearer hk_test_...
 ```
 
-`X-Api-Key: hk_test_...` works too. Sandbox keys start with `hk_test_`, production keys with `hk_live_`.
+`X-Api-Key: hk_test_...` works too. Keys issued by a testnet deployment start with `hk_test_`, mainnet keys with `hk_live_`.
 
 ## Scopes
 
@@ -27,12 +27,12 @@ Only the endpoints above check a scope. Every other `/v1` endpoint — reads, wa
 - **Shown once**: the plaintext key is returned once. The server stores only its hash and a display prefix.
 - **Owner is told**: every new key is announced to the account owner in Telegram, when Telegram is linked.
 - **Wallet-only accounts hold 1 key**. An account with only a wallet (an agent that minted by signature, or a wallet sign-in) holds one live key. A new signed mint **replaces** the previous key, which stops working. This is also how an agent recovers a lost or leaked key.
-- **Person-backed accounts hold up to 10**. An account signed up at [/developers](https://dev.hashlock.markets/developers) with email, Google or Telegram holds up to 10 live keys. Minting an eleventh is refused until one is revoked.
+- **Person-backed accounts hold up to 10**. An account signed up at [/developers](https://hashlock.markets/developers) with email, Google or Telegram holds up to 10 live keys. Minting an eleventh is refused until one is revoked.
 - **One rate budget per account**: all keys of an account share it. More keys do not buy more rate. See [Rate limits](/guides/rate-limits-and-idempotency).
 
 ## Mint a key in the browser
 
-Sign in at [dev.hashlock.markets/developers](https://dev.hashlock.markets/developers) and create a key. Revoke keys there too.
+Sign in at [hashlock.markets/developers](https://hashlock.markets/developers) and create a key. Revoke keys there too.
 
 ## Mint a key with a wallet signature
 
@@ -82,7 +82,7 @@ curl -s -X POST $HL/v1/keys -H "content-type: application/json" -d "$(jq -n \
 ```typescript viem
 import { privateKeyToAccount } from 'viem/accounts';
 
-const HL = 'https://api-dev.hashlock.markets';
+const HL = 'https://api.hashlock.markets';
 const account = privateKeyToAccount(process.env.EVM_KEY as `0x${string}`);
 
 const { nonce } = await (await fetch(`${HL}/v1/keys/nonce`)).json();
