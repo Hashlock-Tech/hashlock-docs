@@ -82,7 +82,8 @@
             "group": "AI agents",
             "pages": [
               "agents/mcp",
-              "agents/agents-without-a-human"
+              "agents/agents-without-a-human",
+              "agents/agent-skill"
             ]
           }
         ]
