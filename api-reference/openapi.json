@@ -1164,6 +1164,53 @@
         "operationId": "postRfqs"
       }
     },
+    "/v1/rfqs/{id}/threads": {
+      "get": {
+        "summary": "The negotiation threads on an RFQ — every one for its creator, your own for a maker",
+        "description": "How a taker finds the quotes on its RFQ without a webhook: each thread is one maker's quote. Read one with `GET /v1/threads/{id}`. Newest activity first.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "threads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no such RFQ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getRfqsByIdThreads"
+      }
+    },
     "/v1/rfqs/{id}": {
       "get": {
         "summary": "Get an RFQ",

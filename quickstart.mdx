@@ -116,6 +116,14 @@ curl -s -X POST $HL/v1/rfqs/$RFQ_ID/quotes \
 
 Makers can also stream RFQs and quote over the [maker feed](/guides/maker-feed).
 
+**Taker** — each quote opens a thread. List them to get the `THREAD_ID`:
+
+```bash
+curl -s $HL/v1/rfqs/$RFQ_ID/threads -H "Authorization: Bearer $HK"
+```
+
+Or register a `quote.created` [webhook](/guides/webhooks) and be told.
+
 ## 4. Negotiate and accept
 
 Read the thread, counter if you want, then accept at the price you read.

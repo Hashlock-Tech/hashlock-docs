@@ -126,6 +126,7 @@
               "GET /v1/rfqs",
               "POST /v1/rfqs",
               "GET /v1/rfqs/{id}",
+              "GET /v1/rfqs/{id}/threads",
               "POST /v1/rfqs/{id}/cancel",
               "POST /v1/rfqs/{id}/quotes"
             ]
