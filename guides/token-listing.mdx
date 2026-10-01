@@ -1,0 +1,100 @@
+---
+title: "Token listing"
+description: "How tokens beyond the curated set get on Hashlock Markets: launchpad listing, listing by API key, the checks, and when a token closes."
+---
+
+Hashlock Markets trades two kinds of assets:
+
+- **Curated** — native coins and the stablecoins Hashlock runs itself (`verified: true` in [`GET /v1/assets`](/api-reference/introduction)).
+- **Listed** — tokens that passed automated safety and traction checks (`verified: false`, `source` says how). Every app shows them as **unverified** next to their contract address. A symbol anyone can copy is not an identity: check the address before you trade.
+
+A listed token settles exactly like a curated one, through the same HTLC escrow.
+
+## How a token gets listed
+
+**From a launchpad, automatically.** Hashlock watches new launches and queues each token as a candidate. A candidate is re-checked every hour for 7 days; it is listed the first time it passes, and dropped if it never does.
+
+| Launchpad | Where it is watched |
+|---|---|
+| Bankr | Base, Robinhood Chain (Doppler), Solana (Raydium LaunchLab) |
+| Virtuals | Base, Robinhood Chain, Solana |
+| Clanker | Base, Robinhood Chain |
+
+Only chains this deployment supports are watched.
+
+**By request, with an API key.** Any token on a supported EVM chain or on Solana can be submitted:
+
+```bash
+curl -s -X POST $HL/v1/assets \
+  -H "Authorization: Bearer $KEY" -H "content-type: application/json" \
+  -d '{"chain":"base","address":"0x…"}'
+```
+
+The key needs the **`taker`** scope. Each account may send **20 listing requests an hour**. A token checked within the last hour is answered from that check, without a new one.
+
+| Status | `status` | Meaning |
+|---|---|---|
+| `201` | `listed` | Passed every check and is now listed. |
+| `200` | `listed` | Already listed (or reopened, see below). |
+| `202` | `pending` | Not yet: `reasons` says what is missing. It stays queued and is re-checked hourly for 7 days. |
+| `202` | `closed` | A closed token that does not pass yet. |
+| `422` | `rejected` / `delisted` | Refused for good: a safety failure, or delisted by the operator. |
+| `429` | — | Over the 20-an-hour budget. `Retry-After` says when. |
+| `400` | — | Not a supported chain, or not a token address on it (an EVM contract, or a Solana mint as base58). |
+
+## The checks
+
+A token must pass **all** of them.
+
+### Safety
+
+**EVM tokens**
+
+- Source code verified.
+- Not a honeypot: it can be sold, and the whole balance can be sold.
+- No buy, sell or transfer tax.
+- No unlimited mint, no blacklist, no pausable transfers, no hidden or reclaimable owner, no owner-adjustable balances or taxes, not upgradeable.
+- **Our own transfer test**: a transfer is simulated on chain from a real holder, and must arrive whole.
+
+**Solana tokens**
+
+- A classic SPL token. Token-2022 mints are refused, because Hashlock's Solana escrow settles classic SPL tokens only.
+- No mint authority and no freeze authority. On classic SPL these are the only ways a token can stop a holder, so there is no transfer test.
+- No authority that can change balances, and transferable.
+
+**Both:** the symbol may not imitate a curated asset (`USDC.e`, `USD₮`, `ＵＳＤＣ` and the like are refused).
+
+### Traction
+
+| Measure | Bar |
+|---|---|
+| Market cap (never FDV) | ≥ $1,000,000 |
+| Liquidity | ≥ $100,000 |
+| 24h volume | ≥ $250,000 |
+| Holders | ≥ 500 |
+| Age of its first trading pair | ≥ 24 hours |
+| Top 10 holders | ≤ 40% |
+
+The top-10 share leaves out the token itself, burn addresses and locked holders, and the pools and launchpad contracts Hashlock recognises: on EVM chains the Uniswap v4 pool manager and the launchpads' own contracts (a Uniswap v2 or v3 pair still counts as a holder); on Solana the Meteora, Raydium LaunchLab and CPMM pool vaults and Jupiter Lock vesting escrows.
+
+### Wait or reject
+
+A check the token's own content fails — a honeypot flag, a tax, a mint authority, a look-alike symbol, a transfer that reverts for every holder tried — is a **reject**, and it is final. Anything that time can change or a node outage could cause — traction not there yet, a scanner or node that did not answer — is a **wait**.
+
+## When a listed token closes
+
+Listed tokens are re-checked **daily**. A token **closes** when:
+
+- its market falls below the bar: market cap, liquidity, 24h volume or pair age (holder count and the top-10 share only gate the first listing);
+- it fails a safety check — a close for safety is final;
+- it has not been traded on Hashlock for **3 months** since it was listed or last reopened.
+
+A closed token takes no new RFQs or quotes, and its open orders leave the board. **Swaps already agreed settle normally.** A token closed for its market reopens when it passes every check again, at the daily re-check or by `POST /v1/assets`. A token closed for inactivity reopens only through `POST /v1/assets`, once it passes every check. Curated assets never close automatically.
+
+## Security data
+
+<a href="https://gopluslabs.io" target="_blank">
+  <img src="/images/goplus.png" alt="GoPlus Security" style={{ height: '22px', display: 'inline' }} />
+</a>
+
+Security checks are powered by [GoPlus Security](https://gopluslabs.io), together with Hashlock's own on-chain checks. Market data comes from DexScreener.
