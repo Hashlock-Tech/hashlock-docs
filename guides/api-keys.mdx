@@ -15,11 +15,11 @@ Authorization: Bearer hk_test_...
 
 | Scope | Allows |
 |---|---|
-| `read` | Nothing beyond what every valid key can do. |
-| `taker` | `POST /v1/rfqs`, `POST /v1/rfqs/{id}/cancel`. |
-| `maker` | `POST /v1/rfqs/{id}/quotes` and the [maker feed](/guides/maker-feed). |
+| `read` | Read-only: every `GET`, plus managing the account's own [webhooks](/guides/webhooks). |
+| `taker` | Everything `read` allows, and acting: `POST /v1/rfqs`, `POST /v1/rfqs/{id}/cancel`, [`POST /v1/assets`](/guides/token-listing), negotiating, settlement addresses, the settlement builders, broadcast, wallet proofs. |
+| `maker` | Everything `read` allows, and acting: `POST /v1/rfqs/{id}/quotes`, the [maker feed](/guides/maker-feed), negotiating, settlement addresses, the settlement builders, broadcast, wallet proofs. |
 
-Only the endpoints above check a scope. Every other `/v1` endpoint — reads, wallets, threads, swaps, settlement builders, broadcast, webhooks — works with any valid key; threads and swaps are readable only by their two parties. A call that needs a scope the key lacks returns `403`. `GET /v1/me` shows the key's scopes.
+A key holding only `read` gets `403` ("this API key is read-only") on any write except webhooks. Creating RFQs and listing tokens need `taker` specifically; quoting needs `maker`. Threads and swaps are readable only by their two parties. `GET /v1/me` shows the key's scopes.
 
 ## Key rules
 
