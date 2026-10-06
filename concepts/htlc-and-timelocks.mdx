@@ -36,9 +36,11 @@ Each chain has a safe timelock, set from its finality and reorg risk. The curren
 | Chain | Family | Leg timelock |
 |---|---|---|
 | Bitcoin | `bitcoin` | 24 hours |
-| Ethereum (Sepolia) | `evm` | 4 hours |
-| TRON (Nile) | `tvm` | 4 hours |
-| Solana (devnet) | `svm` | 4 hours |
+| Ethereum, Base, Robinhood Chain | `evm` | 4 hours |
+| TRON | `tvm` | 4 hours |
+| Solana | `svm` | 4 hours |
+
+Chain keys, contracts and confirmation depths are in [Networks](/concepts/networks).
 
 For a pair of chains:
 
@@ -48,8 +50,8 @@ For a pair of chains:
 
 Examples:
 
-- BTC ↔ Sepolia: the Bitcoin leg is long at 24 h, the EVM leg is short at 4 h.
-- Sepolia ↔ Solana (tie): the short leg is 4 h, the long leg is 6 h.
+- BTC ↔ Base: the Bitcoin leg is long at 24 h, the EVM leg is short at 4 h.
+- Base ↔ Solana (tie): the short leg is 4 h, the long leg is 6 h.
 
 Timelocks are fixed when the swap is created and are absolute times. `GET /v1/swaps/{id}` shows them per leg.
 

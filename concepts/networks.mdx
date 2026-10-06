@@ -1,0 +1,71 @@
+---
+title: "Networks"
+description: "Supported chains, their keys in the API and MCP, the HTLC contracts, and how many confirmations a funding needs."
+---
+
+<Note>
+Pre-launch: these are the mainnet networks and contracts the service will run on at launch.
+</Note>
+
+## Supported chains
+
+| Chain | Key | Family | Chain id | Native coin | Leg timelock | Keeper claims for you |
+|---|---|---|---|---|---|---|
+| Bitcoin | `bitcoin` | `bitcoin` | — | BTC (8) | 24 hours | No |
+| Ethereum | `ethereum` | `evm` | 1 | ETH (18) | 4 hours | Yes |
+| Base | `base` | `evm` | 8453 | ETH (18) | 4 hours | Yes |
+| Robinhood Chain | `robinhood` | `evm` | 4663 | ETH (18) | 4 hours | Yes |
+| TRON | `tron` | `tvm` | — | TRX (6) | 4 hours | Yes |
+| Solana | `solana` | `svm` | — | SOL (9) | 4 hours | Yes |
+
+- **Key** is the chain's name everywhere in the API, the SDK and the MCP.
+- **Family** decides the address format and how a transaction is signed and broadcast.
+- **Leg timelock** is the chain's safe timelock. How a pair of chains turns into the two legs' timelocks is in [HTLC and timelocks](/concepts/htlc-and-timelocks).
+- **Keeper claims for you**: once the secret is revealed, Hashlock's keeper claims that leg to its fixed recipient, so the counterparty does not have to. A Bitcoin claim needs the receiver's own signature, so the receiver claims it.
+
+Which tokens trade on each chain is not fixed: list them with `GET /v1/assets` (MCP: `list_assets`). An asset is `{ chain, symbol, address, decimals }`, where `address` is the token contract and `null` means the chain's native coin.
+
+## HTLC contracts
+
+| Chain | Contract | Address |
+|---|---|---|
+| Ethereum | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
+| Base | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
+| Robinhood Chain | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
+| TRON | `SharedHTLC` | `TAyJCZ9a5uszYZw2Rt4RMLpJCQqQGhSz1p` |
+| Solana | HTLC program | `7Egsecq7YU5n7PonndM7W7W92EFLZVGrnoaNPW8n1DEc` |
+| Bitcoin | — | no contract: each leg is its own P2WSH script address |
+
+- On EVM chains the factory deploys one escrow clone per leg at a deterministic address, so you can check the exact escrow before funding. The settlement builders return the address; you never pass a contract address yourself.
+- On TRON one pool contract holds every escrow; on Solana each escrow is a PDA of the program.
+- How each one works is in [Settlement by chain](/concepts/settlement-by-chain).
+
+## How to name a chain
+
+| Where | What you pass | Example |
+|---|---|---|
+| Assets (`GET /v1/assets`) | each asset carries its `chain` key | `"chain": "base"` |
+| RFQ (`POST /v1/rfqs`) | the asset's `id`, which already names its chain | `"baseAssetId": "<uuid>"` |
+| Settlement address (`POST /v1/swaps/{id}/address`) | the chain key | `{ "chain": "base", "address": "0x…" }` |
+| Broadcast (`POST /v1/tx/broadcast`) | the **family**, not the key | `{ "chain": "evm", "signed": "0x…" }` |
+| MCP assets (`create_rfq`, `list_open_rfqs`) | `SYMBOL@chain` or the asset id | `"USDC@base"`, `"BTC@bitcoin"` |
+| MCP `set_settlement_address` | the chain key | `"chain": "solana"` |
+
+The same token on two chains is two assets: `USDC@ethereum`, `USDC@base` and `USDC@solana` are different, and a swap between them is a cross-chain swap.
+
+On EVM chains, sign with the `chainId` the fund builder returns, not your wallet's current network.
+
+## Confirmations
+
+A leg counts as funded — and a claim or refund as done — only once the watcher sees it buried deep enough that a reorganisation cannot undo it. Until then the swap stays in its previous state.
+
+| Chain | Counted after |
+|---|---|
+| Bitcoin | 3 confirmations |
+| Ethereum | 12 blocks |
+| Base | 30 blocks |
+| Robinhood Chain | 500 blocks |
+| TRON | the block is solidified |
+| Solana | `finalized` commitment |
+
+So the time from broadcast to "funded" is mostly the chain's: a Bitcoin funding takes three blocks, each about ten minutes on average and sometimes much longer. Do not fund the next leg, or treat a leg as settled, before `GET /v1/swaps/{id}` (or the `swap.*` [webhooks](/guides/webhooks)) says so.
