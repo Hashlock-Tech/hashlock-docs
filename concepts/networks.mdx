@@ -59,13 +59,13 @@ On EVM chains, sign with the `chainId` the fund builder returns, not your wallet
 
 A leg counts as funded — and a claim or refund as done — only once the watcher sees it buried deep enough that a reorganisation cannot undo it. Until then the swap stays in its previous state.
 
-| Chain | Counted after |
-|---|---|
-| Bitcoin | 3 confirmations |
-| Ethereum | 12 blocks |
-| Base | 30 blocks |
-| Robinhood Chain | 500 blocks |
-| TRON | the block is solidified |
-| Solana | `finalized` commitment |
+| Chain | Counted after | About |
+|---|---|---|
+| Bitcoin | 3 confirmations | 30 minutes |
+| Ethereum | 8 blocks | 1.5 minutes |
+| Base | 15 blocks | 30 seconds |
+| Robinhood Chain | 250 blocks | under a minute |
+| TRON | the block is solidified | 1 minute |
+| Solana | `finalized` commitment | 15 seconds |
 
 So the time from broadcast to "funded" is mostly the chain's: a Bitcoin funding takes three blocks, each about ten minutes on average and sometimes much longer. Do not fund the next leg, or treat a leg as settled, before `GET /v1/swaps/{id}` (or the `swap.*` [webhooks](/guides/webhooks)) says so.
