@@ -1,51 +1,39 @@
 ---
 title: "Fees"
-description: "Who pays the protocol fee, how much, when it becomes known, and what it costs on top in network fees."
+description: "Who pays the protocol fee, when you see it, and what the networks charge on top."
 ---
 
 ## The protocol fee
 
-- **The taker pays it.** The taker is whoever created the RFQ, public or private. A maker never pays it.
-- **It is a share of what the taker gives**, in basis points, in that leg's own asset, and it is paid **on top** of the amount. Selling 1 BTC means funding 1 BTC plus the fee; the counterparty still receives exactly 1 BTC.
-- **The rate is set per deployment.** Every swap records it: `swap.feeBps`, `swap.feeAmount` (base units), `swap.feeAssetId` and `swap.feePayerId` in the [`GET /v1/swaps/{id}`](/api-reference/introduction) response. The amount is `floor(amount × feeBps / 10000)`. Rounding is always down.
+- **The taker pays it** — whoever created the request, public or private. The maker never pays it.
+- **It is a small percentage of what you give**, in the same asset, and comes **on top** of it. Selling 1 BTC means sending 1 BTC plus the fee; the protocol fee never comes out of the other side's 1 BTC.
+- **You see it before you commit.** The order form shows it before you post, and the deal page shows the exact amount before you fund.
 
 ## When the amount is known
 
-The fee is fixed when the swap is agreed, on the agreed amount of the taker's leg. Before that:
-
-| The taker… | Fee known at RFQ creation? |
+| You… | What the order form shows |
 |---|---|
-| sells (`sell_base`) | Yes — the fee is on `baseAmount`, which the RFQ fixes. |
-| buys with a private order (`buy_base` + `askAmount`) | At the asked price. A counter-proposal changes the price, and the fee with it. |
-| buys with a public RFQ (`buy_base`) | Only the rate. The amount follows the maker's quote. |
-
-The web app and the Telegram Mini App show this line on the order form before the order is posted.
+| sell | The exact fee — the amount you sell is fixed. |
+| buy at your own price (private order) | The fee at your price. If the other side counters, the fee follows the new price. |
+| buy and let makers quote (public request) | The rate. The amount is known once a maker quotes. |
 
 ## How it is paid
 
-On EVM, TRON and Solana the fee is paid **in the same transaction** as the leg; on Bitcoin, ideally in the same transaction. It goes straight to the protocol treasury and is never held in the escrow.
+The fee is paid together with your funding and goes straight to Hashlock. It is never locked with your funds.
 
-| Rail | How |
-|---|---|
-| EVM | `createSwap` transfers the fee to the treasury on top of the amount. An ERC-20 leg approves `amount + fee`; a native leg sends `amount + fee` as the value. |
-| TRON | `fund` transfers the fee to the treasury. A TRC-20 leg approves `amount + fee`; a native TRX leg sends `amount + fee` as the call value. |
-| Solana | The fund instruction transfers the fee to the treasury: to its token account for an SPL leg, in lamports for native SOL. |
-| Bitcoin | `feeAmountSats` to `feePayTo`, ideally as a second output of the escrow payment, otherwise as a separate transfer **from the same wallet** (only confirmed payments count). The leg does not count as funded without it. |
-
-The fee is part of the escrow's identity on EVM, TRON and Solana: an escrow funded with a different fee is a different escrow, and does not fund the swap.
+On Bitcoin your wallet may send it as a second, small transfer. Send it from the **same address** that funded the deal — the deal does not move on until that transfer is confirmed.
 
 <Warning>
-**The fee is not refunded.** It is paid at funding, so a leg that is later refunded after its timelock returns the amount, not the fee.
+**The fee is not refunded.** If the deal does not complete and you take your funds back after its deadline, you get back the amount, not the fee.
 </Warning>
 
-## Small amounts
-
-A Bitcoin fee below 546 sats — the smallest output nodes relay — cannot be paid, so it is **waived**: the swap records a fee of `0`. On EVM, TRON and Solana tokens any amount is paid, including fees of a single base unit.
+On Bitcoin, a fee too small to send (under 546 satoshi) is waived. On the other chains the fee is paid whatever its size.
 
 ## Network costs on top
 
 These go to the network, not to Hashlock:
 
-- **Gas / transaction fees** for each transaction you sign: funding (plus `approve` on EVM and TRON), and a claim or refund if you send it yourself. Where the keeper claims for you, it pays the claim's network fee.
-- **TRON energy.** Each contract call — approve, fund, claim, refund — burns TRX for energy and bandwidth unless the account has staked them.
-- **Solana rent.** Funding a Solana leg creates the escrow account (and, for an SPL leg, its token account). Their rent — about 0.0032 SOL for an SPL leg, about 0.0017 SOL for native SOL — is paid by the funder and is not returned: the program never closes an escrow, because a closed address could be initialised again on the same terms.
+- **Transaction fees** for each transaction you sign: funding, and a claim or refund if you send it yourself. When Hashlock's settlement service claims for you, it pays that fee.
+- **Bitcoin.** Collecting or taking back locked coins pays its network fee out of those coins, so slightly less than the locked amount arrives.
+- **TRON.** Most transactions burn some TRX. A brand-new TRON address must first receive some TRX before it can send anything, a claim included.
+- **Solana.** Funding pays a one-time Solana storage deposit for the deal — about 0.0032 SOL for a token, about 0.0017 SOL for native SOL. It is not returned.
