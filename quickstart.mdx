@@ -3,10 +3,6 @@ title: "Quickstart"
 description: "From an API key to a settled swap over the /v1 REST API."
 ---
 
-<Warning>
-Hashlock Markets is pre-launch: the public API at `https://api.hashlock.markets` is not open yet. The steps below are exactly what you will run once it is.
-</Warning>
-
 This walks one swap end to end over REST. The server builds unsigned transactions; **you sign every transaction yourself**. The server never signs anything that moves your funds.
 
 All amounts are **base-unit integer strings** (satoshis, wei, token base units).
@@ -48,7 +44,7 @@ Pick one path.
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ rail: 'evm', address: account.address, message, signature }),
     });
-    const { key, expiresAt } = await res.json(); // key = "hk_test_…", shown once
+    const { key, expiresAt } = await res.json(); // key = "hk_live_…", shown once
     ```
 
     See [API keys](/guides/api-keys) for the message rules, other chains and key limits.
@@ -181,15 +177,15 @@ The response is chain-specific signing material. Sign it locally and broadcast. 
 
 ```typescript
 import { createPublicClient, createWalletClient, http } from 'viem';
-import { sepolia } from 'viem/chains'; // the testnet; use the chain your swap's leg is on
+import { mainnet } from 'viem/chains'; // use the chain your swap's leg is on
 
 const build = await (await fetch(`${HL}/v1/swaps/${swapId}/legs/${myFundLeg}/fund`, {
   method: 'POST', headers: { Authorization: `Bearer ${HK}` },
 })).json();
 // { sign: 'evm-tx', chainId, from, txs: [{ to, data, value /* hex wei */ }, ...] }
 // Sign every tx from `build.from` — the factory refuses any other sender.
-const wallet = createWalletClient({ account, chain: sepolia, transport: http() });
-const reader = createPublicClient({ chain: sepolia, transport: http() });
+const wallet = createWalletClient({ account, chain: mainnet, transport: http() });
+const reader = createPublicClient({ chain: mainnet, transport: http() });
 
 for (const tx of build.txs) {
   const request = await wallet.prepareTransactionRequest({

@@ -16,10 +16,6 @@ There are two ways to run it.
 
 ## Hosted, by URL
 
-<Warning>
-Pre-launch: the hosted MCP at this address is not open yet. Don't connect an agent to it until launch.
-</Warning>
-
 ```text
 https://hashlock.markets/mcp
 ```
@@ -77,7 +73,7 @@ Amounts in the hosted tools are **base-unit integer strings**, as in the REST AP
 
 ## Local, over stdio
 
-Run the npm package with your own keys (**testnet** keys until launch). It logs in by itself (nonce → sign → session) and can fund and claim on chain with those keys.
+Run the npm package with your own keys — use a dedicated key with only the funds you intend to trade. It logs in by itself (nonce → sign → session) and can fund and claim on chain with those keys.
 
 ```json
 {
@@ -86,10 +82,10 @@ Run the npm package with your own keys (**testnet** keys until launch). It logs 
       "command": "npx",
       "args": ["-y", "@hashlock-tech/mcp"],
       "env": {
-        "HASHLOCK_EVM_KEY": "0x<agent EVM key (TESTNET!)>",
+        "HASHLOCK_EVM_KEY": "0x<agent EVM key>",
         "HASHLOCK_TRON_KEY": "<agent TRON key, 64-hex (optional)>",
-        "HASHLOCK_BTC_KEY": "<agent BTC WIF, signet (optional)>",
-        "HASHLOCK_SOLANA_KEY": "<agent Solana key, base58, devnet (optional)>"
+        "HASHLOCK_BTC_KEY": "<agent BTC WIF (optional)>",
+        "HASHLOCK_SOLANA_KEY": "<agent Solana key, base58 (optional)>"
       }
     }
   }

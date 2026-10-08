@@ -19,10 +19,10 @@ Send an API key on every call except `GET /v1/keys/nonce` and `POST /v1/keys`:
 
 ```bash
 curl -s https://api.hashlock.markets/v1/me \
-  -H "Authorization: Bearer hk_test_..."
+  -H "Authorization: Bearer hk_live_..."
 ```
 
-`X-Api-Key: hk_test_...` is accepted too. A missing key returns `401`; an invalid, revoked or expired one returns `401`; a key without the needed scope returns `403`.
+`X-Api-Key: hk_live_...` is accepted too. A missing key returns `401`; an invalid, revoked or expired one returns `401`; a key without the needed scope returns `403`.
 
 Get a key at [/developers](https://hashlock.markets/developers), or mint one with a wallet signature. See [API keys](/guides/api-keys).
 

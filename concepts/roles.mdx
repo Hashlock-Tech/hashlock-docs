@@ -30,7 +30,7 @@ Both roles use the same endpoints for negotiation and settlement. One API key ca
 
 The initiator is not chosen by who asked. It is chosen by the chains: whoever funds the leg on the chain with the longer safe timelock is the initiator. On a tie, the taker (leg `b`) is the initiator. See [HTLC and timelocks](/concepts/htlc-and-timelocks#how-the-server-picks-them).
 
-Example: a taker selling BTC for Sepolia USDT funds the Bitcoin leg (24 h), so the taker is the initiator.
+Example: a taker selling BTC for USDT on Ethereum funds the Bitcoin leg (24 h), so the taker is the initiator.
 
 <Tip>
 You learn whether you are the initiator from the thread: the server refuses the initiator's `accept` without a `hashlock`. Treat any refusal that asks for a hashlock as "you are the initiator".
