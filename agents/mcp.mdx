@@ -82,6 +82,7 @@ Run the npm package with your own keys — use a dedicated key with only the fun
       "command": "npx",
       "args": ["-y", "@hashlock-tech/mcp"],
       "env": {
+        "HASHLOCK_API_URL": "https://hashlock.markets/api",
         "HASHLOCK_EVM_KEY": "0x<agent EVM key>",
         "HASHLOCK_TRON_KEY": "<agent TRON key, 64-hex (optional)>",
         "HASHLOCK_BTC_KEY": "<agent BTC WIF (optional)>",
@@ -101,6 +102,17 @@ Run the npm package with your own keys — use a dedicated key with only the fun
 | `HASHLOCK_TOKEN` | — | a ready session token instead of a key |
 
 The first configured key (EVM → TRON → BTC → Solana) opens the session; each key also signs settlement on its chain. With no key set, the read-only tools (`list_assets`, `list_open_rfqs`, `get_rfq`) still work.
+
+`HASHLOCK_API_URL` is required: it names the deployment the server talks to, and there is no default.
+
+The server sends your fund and claim transactions through public RPC endpoints. The defaults work, but they are shared and rate-limited — for regular trading, set your own:
+
+| Env var | What it sets | Default |
+|---|---|---|
+| `HASHLOCK_EVM_RPC` | Ethereum RPC | a public Ethereum RPC |
+| `HASHLOCK_EVM_RPC_<CHAIN>` | RPC for another EVM chain, e.g. `HASHLOCK_EVM_RPC_BASE`, `HASHLOCK_EVM_RPC_ROBINHOOD` | none — required to settle on that chain |
+| `HASHLOCK_TRON_HOST` | TRON node | TronGrid |
+| `HASHLOCK_TRON_API_KEY` | TronGrid API key | none — TronGrid limits requests without one |
 
 The swap secret is generated locally and stored at `HASHLOCK_SECRETS_PATH` (default `~/.hashlock/mcp-secrets.json`, mode `0600`). Only its hashlock leaves the machine.
 

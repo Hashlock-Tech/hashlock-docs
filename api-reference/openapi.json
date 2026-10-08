@@ -3,7 +3,7 @@
   "info": {
     "title": "Hashlock Markets API",
     "version": "1.0.0",
-    "description": "Guides, concepts and a quickstart: https://docs.hashlock.markets\n\nNon-custodial cross-chain atomic swaps (BTC ↔ EVM / TRON / Solana) via sealed RFQ + HTLC. Makers and takers share these endpoints. Authenticate with an API key: `Authorization: Bearer hk_...`.\n\n**Wallets first.** An order that GIVES an asset requires a proven wallet on that asset's chain, and your key starts with only the address its account signed in with. `GET /v1/me` lists both what each chain's `login` address is and what you have `proven`; `POST /v1/wallets/{evm|tron|solana|bitcoin}` proves another by signature — Bitcoin included, on a BIP-322 one. A proof adds trading reach and nothing else: it never becomes the account's payout identity, which only a wallet session can change — so a key alone cannot redirect anyone's money. The message you sign for it must say `link this wallet` and carry a nonce from `GET /v1/wallets/nonce`; that nonce is not a login nonce, so the signature you collect is not a session for that wallet's account.\n\n**Rate limits.** Every response carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds). Over the limit returns `429` with `Retry-After`.\n\n**Idempotency.** Send an `Idempotency-Key` header on any POST to make retries safe: the operation runs once and the same response is replayed (with `Idempotency-Replayed: true`). Reusing a key with a different body returns `422`. Keys are remembered for 24h — except a `504`, which is a read of ours running out of time: on the builders nothing happened, and on `/tx/broadcast` we cannot tell — so either way a retry with the same key really retries.\n\n**Custody-agnostic settlement.** The fund/claim/refund endpoints return UNSIGNED transactions; you sign with your own key/HSM and submit via `/v1/tx/broadcast`. The server never holds your keys.\n\n---\n\n## Maker feed (WebSocket)\n\nPolling `GET /v1/rfqs` will not win you flow. `wss://<host>/v1/ws` — the host you selected above — streams every request-for-quote you are eligible for, and takes your quotes back over the same socket.\n\n**Handshake.** Connect, then send your key as the first frame. Nothing else is accepted until you do:\n\n```json\n{ \"apiKey\": \"hk_test_...\" }\n```\n\nThe key needs the `maker` scope (`GET /v1/me` shows what yours has). You get a snapshot, then a readiness marker:\n\n```json\n{ \"type\": \"snapshot\", \"rfqs\": [ ... ] }\n{ \"type\": \"ready\" }\n```\n\nThe snapshot is the **public** book only, and at most **100** entries, newest first. If you need more than that, page `GET /v1/rfqs?cursor=…` after connecting. An RFQ created while the snapshot was being built may appear both in it and in the stream that follows — frames carry the rfq id, so key on it and the duplicate is a no-op.\n\n**The stream.** Two kinds, and only two:\n\n```json\n{ \"type\": \"rfq\", \"kind\": \"created\",   \"rfq\": { ... } }\n{ \"type\": \"rfq\", \"kind\": \"cancelled\", \"rfq\": { ... } }\n```\n\n`cancelled` means the order left the book, not always that its owner cancelled it: when a listed token **closes** (it no longer passes the listing checks), every public order on it is sent as `cancelled` while its status is unchanged (`open` or `negotiating`); if the token **reopens**, the same orders come back as `created` with their original id and `createdAt`. Treat both as upserts keyed on the id.\n\nAn RFQ also leaves the book when it **expires** or is **agreed** with another maker, and neither emits a frame. A book you maintain purely from the stream therefore drifts: it keeps orders nobody can take any more, and quoting into one is rejected. Reconcile with a fresh `snapshot` (reconnect) or check `GET /v1/rfqs/{id}` before committing to a price.\n\n**What reaches you.** Public RFQs, plus private ones addressed to an address on your account. Matching follows each encoding: EVM hex and bech32 (`bc1…`/`tb1…`) compare case-insensitively, base58check (TRON, legacy Bitcoin) does not — there the case of a character is part of the address. Never your own orders — neither in the snapshot nor in the stream. Note the asymmetry: **private orders arrive only on the live stream.** They are link-only by design, so they are absent from the snapshot and from `GET /v1/rfqs`, and there is no endpoint that lists the ones addressed to you. A private order sent while your socket was down is not recoverable — if you trade private flow, stay connected.\n\n**Quoting.** Send the quote down the same socket; no HTTP round-trip, no second authentication. `quoteAmount` is in base units, as everywhere else in this API:\n\n```json\n{ \"quote\": { \"rfqId\": \"…\", \"quoteAmount\": \"1500000000\" } }\n→ { \"type\": \"quoted\", \"rfqId\": \"…\", \"threadId\": \"…\" }\n```\n\nThe `threadId` is a negotiation thread: `GET /v1/threads/{id}` and the propose/accept endpoints take it from there. `POST /v1/rfqs/{id}/quotes` does the same thing over REST if you prefer.\n\n**Errors** arrive as `{ \"type\": \"error\", \"error\": \"…\" }` and do not close the socket.\n\n**Operating it.** There is no heartbeat and no resume: detect a dead socket yourself and reconnect. The fresh `snapshot` is your recovery for the public book, with the two limits above — 100 entries, and no private orders. Nothing is replayed, so this socket is not a settlement log. For that register a webhook (`POST /v1/webhooks`): the feed tells you what to quote, webhooks tell you what happened to your swaps.\n\n**Webhook signature.** `x-hashlock-signature: sha256=<hex>` is HMAC-SHA256 over `<timestamp>.<body>` with your webhook secret; the timestamp is in `x-hashlock-timestamp`. Verify before trusting a delivery, and reply 2xx.\n\n**Webhook events.** `quote.created`, `swap.agreed`, `swap.funded`, `secret.revealed`, `swap.settled`, `swap.refunded` — subscribe to none and you get all of them. `POST /v1/webhooks/{id}/ping` also delivers a `ping` event, so handle an unknown `type` by returning 2xx rather than erroring.\n\n**Webhook delivery is best-effort, not durable.** A non-2xx or a timeout is retried after 15s, 30s, 60s, 120s and 240s — **6 attempts over 7m45s** — and is then dropped; there is no redelivery endpoint and no delivery log beyond `lastStatus` on `GET /v1/webhooks`. If your receiver is down longer than that you will lose events, so reconcile against `GET /v1/swaps/{id}` — that is the authoritative state — rather than treating the webhook as the record."
+    "description": "Guides, concepts and a quickstart: https://docs.hashlock.markets\n\nNon-custodial cross-chain atomic swaps (BTC ↔ EVM / TRON / Solana) via sealed RFQ + HTLC. Makers and takers share these endpoints. Authenticate with an API key: `Authorization: Bearer hk_...`.\n\n**Wallets first.** An order that GIVES an asset requires a proven wallet on that asset's chain, and your key starts with only the address its account signed in with. `GET /v1/me` lists both what each chain's `login` address is and what you have `proven`; `POST /v1/wallets/{evm|tron|solana|bitcoin}` proves another by signature — Bitcoin included, on a BIP-322 one. A proof adds trading reach and nothing else: it never becomes the account's payout identity, which only a wallet session can change — so a key alone cannot redirect anyone's money. The message you sign for it must say `link this wallet` and carry a nonce from `GET /v1/wallets/nonce`; that nonce is not a login nonce, so the signature you collect is not a session for that wallet's account.\n\n**Rate limits.** Every response carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds). Over the limit returns `429` with `Retry-After`.\n\n**Idempotency.** Send an `Idempotency-Key` header on any POST to make retries safe: the operation runs once and the same response is replayed (with `Idempotency-Replayed: true`). Reusing a key with a different body returns `422`. Keys are remembered for 24h — except a `504`, which is a read of ours running out of time: on the builders nothing happened, and on `/tx/broadcast` we cannot tell — so either way a retry with the same key really retries.\n\n**Custody-agnostic settlement.** The fund/claim/refund endpoints return UNSIGNED transactions; you sign with your own key/HSM and submit via `/v1/tx/broadcast`. The server never holds your keys.\n\n---\n\n## Maker feed (WebSocket)\n\nPolling `GET /v1/rfqs` will not win you flow. `wss://<host>/v1/ws` — the host you selected above — streams every request-for-quote you are eligible for, and takes your quotes back over the same socket.\n\n**Handshake.** Connect, then send your key as the first frame. Nothing else is accepted until you do:\n\n```json\n{ \"apiKey\": \"hk_live_...\" }\n```\n\nThe key needs the `maker` scope (`GET /v1/me` shows what yours has). You get a snapshot, then a readiness marker:\n\n```json\n{ \"type\": \"snapshot\", \"rfqs\": [ ... ] }\n{ \"type\": \"ready\" }\n```\n\nThe snapshot is the **public** book only, and at most **100** entries, newest first. If you need more than that, page `GET /v1/rfqs?cursor=…` after connecting. An RFQ created while the snapshot was being built may appear both in it and in the stream that follows — frames carry the rfq id, so key on it and the duplicate is a no-op.\n\n**The stream.** Two kinds, and only two:\n\n```json\n{ \"type\": \"rfq\", \"kind\": \"created\",   \"rfq\": { ... } }\n{ \"type\": \"rfq\", \"kind\": \"cancelled\", \"rfq\": { ... } }\n```\n\n`cancelled` means the order left the book, not always that its owner cancelled it: when a listed token **closes** (it no longer passes the listing checks), every public order on it is sent as `cancelled` while its status is unchanged (`open` or `negotiating`); if the token **reopens**, the same orders come back as `created` with their original id and `createdAt`. Treat both as upserts keyed on the id.\n\nAn RFQ also leaves the book when it **expires** or is **agreed** with another maker, and neither emits a frame. A book you maintain purely from the stream therefore drifts: it keeps orders nobody can take any more, and quoting into one is rejected. Reconcile with a fresh `snapshot` (reconnect) or check `GET /v1/rfqs/{id}` before committing to a price.\n\n**What reaches you.** Public RFQs, plus private ones addressed to an address on your account. Matching follows each encoding: EVM hex and bech32 (`bc1…`/`tb1…`) compare case-insensitively, base58check (TRON, legacy Bitcoin) does not — there the case of a character is part of the address. Never your own orders — neither in the snapshot nor in the stream. Note the asymmetry: **private orders arrive only on the live stream.** They are link-only by design, so they are absent from the snapshot and from `GET /v1/rfqs`, and there is no endpoint that lists the ones addressed to you. A private order sent while your socket was down is not recoverable — if you trade private flow, stay connected.\n\n**Quoting.** Send the quote down the same socket; no HTTP round-trip, no second authentication. `quoteAmount` is in base units, as everywhere else in this API:\n\n```json\n{ \"quote\": { \"rfqId\": \"…\", \"quoteAmount\": \"1500000000\" } }\n→ { \"type\": \"quoted\", \"rfqId\": \"…\", \"threadId\": \"…\" }\n```\n\nThe `threadId` is a negotiation thread: `GET /v1/threads/{id}` and the propose/accept endpoints take it from there. `POST /v1/rfqs/{id}/quotes` does the same thing over REST if you prefer.\n\n**Errors** arrive as `{ \"type\": \"error\", \"error\": \"…\" }` and do not close the socket.\n\n**Operating it.** There is no heartbeat and no resume: detect a dead socket yourself and reconnect. The fresh `snapshot` is your recovery for the public book, with the two limits above — 100 entries, and no private orders. Nothing is replayed, so this socket is not a settlement log. For that register a webhook (`POST /v1/webhooks`): the feed tells you what to quote, webhooks tell you what happened to your swaps.\n\n**Webhook signature.** `x-hashlock-signature: sha256=<hex>` is HMAC-SHA256 over `<timestamp>.<body>` with your webhook secret; the timestamp is in `x-hashlock-timestamp`. Verify before trusting a delivery, and reply 2xx.\n\n**Webhook events.** `quote.created`, `swap.agreed`, `swap.funded`, `secret.revealed`, `swap.settled`, `swap.refunded`, `swap.half_settled` (one leg claimed, the other refunded at its timelock) — subscribe to none and you get all of them. `POST /v1/webhooks/{id}/ping` also delivers a `ping` event, so handle an unknown `type` by returning 2xx rather than erroring.\n\n**Webhook delivery is best-effort, not durable.** A non-2xx or a timeout is retried after 15s, 30s, 60s, 120s and 240s — **6 attempts over 7m45s** — and is then dropped; there is no redelivery endpoint and no delivery log beyond `lastStatus` on `GET /v1/webhooks`. If your receiver is down longer than that you will lose events, so reconcile against `GET /v1/swaps/{id}` — that is the authoritative state — rather than treating the webhook as the record."
   },
   "servers": [
     {
@@ -1963,6 +1963,16 @@
               }
             }
           },
+          "409": {
+            "description": "a funding of this leg is on its way — its refund address is fixed until it is recorded or fails",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "description": "a chain or explorer read of ours ran out of time — nothing was changed; retry (an Idempotency-Key does not remember a 504)",
             "content": {
@@ -1975,6 +1985,158 @@
           }
         },
         "operationId": "postSwapsByIdAddress"
+      }
+    },
+    "/v1/swaps/{id}/fund-intent": {
+      "post": {
+        "summary": "Reserve an EVM leg's funding, then report its broadcast",
+        "description": "Call it WITHOUT txHash before the first transaction of an EVM leg you fund (approve or createSwap): it reserves the leg, and is refused with 409 while another funding of it is live — from any client or wallet. Call it again WITH txHash as soon as your createSwap is broadcast. While the reservation stands, every client shows the leg as on its way and its refund address is fixed. It is released when the escrow is recorded, or when the transaction reverts, mines without this swap's escrow, or is not seen on chain for 30 minutes; a reservation that never names a transaction lapses after 30 minutes. Pass `at` (the reservation's token) when attaching if more than one of your clients may fund. The same txHash again changes nothing.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "leg"
+                ],
+                "properties": {
+                  "leg": {
+                    "type": "string",
+                    "enum": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "txHash": {
+                    "type": "string",
+                    "description": "0x + 64 hex — omit to reserve"
+                  },
+                  "from": {
+                    "type": "string",
+                    "description": "when reserving: the wallet that will send the escrow, recorded as the leg's refund address in the same write"
+                  },
+                  "at": {
+                    "type": "string",
+                    "description": "when attaching: the reservation's token — meta.fundIntent[leg].at as the reserve returned it"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "swap": {
+                      "$ref": "#/components/schemas/Swap"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "another funding of this leg is on its way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postSwapsByIdFundIntent"
+      }
+    },
+    "/v1/swaps/{id}/fund-intent/{leg}": {
+      "delete": {
+        "summary": "Give back a funding reservation that never broadcast",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leg",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "the reservation's token, as the reserve returned it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "swap": {
+                      "$ref": "#/components/schemas/Swap"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "deleteSwapsByIdFundIntentByLeg"
       }
     },
     "/v1/webhooks": {
@@ -1996,7 +2158,7 @@
       },
       "post": {
         "summary": "Register a webhook",
-        "description": "Register a webhook. Events: quote.created, swap.agreed, swap.funded, secret.revealed, swap.settled, swap.refunded (omit = all). Returns the signing secret ONCE; deliveries are POSTed with X-Hashlock-Signature: sha256=HMAC-SHA256(secret, `${timestamp}.${body}`).",
+        "description": "Register a webhook. Events: quote.created, swap.agreed, swap.funded, secret.revealed, swap.settled, swap.refunded, swap.half_settled (omit = all). Returns the signing secret ONCE; deliveries are POSTed with X-Hashlock-Signature: sha256=HMAC-SHA256(secret, `${timestamp}.${body}`).",
         "requestBody": {
           "required": true,
           "content": {
