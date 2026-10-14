@@ -110,7 +110,9 @@ Minting is limited per client IP: 20 mint requests per hour.
 
 ## Proving wallets
 
-An order that **gives** an asset needs a proven wallet on that asset's chain. A key starts with only the address its account signed in with. `GET /v1/me` lists, per chain, the `login` address and the `proven` ones.
+An order that **gives** an asset needs a wallet the account can fund that leg from. A key starts with only the address its account signed in with. `GET /v1/me` lists, per chain, the `login` address and the `proven` ones.
+
+Over an API key, a wallet proved below lets the account give on **EVM** (set it as the refund address on the leg — it sends the fund). On **TRON and Solana** it does not: those legs are funded from the login wallet, or from one linked in a signed-in session at hashlock.markets. On **Bitcoin** any wallet can pay the escrow, but its refund key must be the login wallet's or one linked in such a session. An RFQ, quote or accept that gives on a chain the account cannot fund from is refused.
 
 1. `GET /v1/wallets/nonce` → a single-use **link** nonce.
 2. Sign a message that contains `Hashlock Markets`, the words `link this wallet`, the address, and `Nonce: <nonce>`:

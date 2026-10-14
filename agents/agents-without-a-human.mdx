@@ -66,9 +66,11 @@ What to know:
   </Tab>
 </Tabs>
 
-## 3. Prove the other wallets it gives from
+## 3. Prove another EVM wallet it gives from
 
-To give an asset on a chain other than its login chain, the agent proves that wallet with the key: `GET /v1/wallets/nonce`, sign `link this wallet`, `POST /v1/wallets/{chain}`. See [Proving wallets](/guides/api-keys#proving-wallets).
+To give from an EVM wallet other than its login wallet, the agent proves that wallet with the key: `GET /v1/wallets/nonce`, sign `link this wallet`, `POST /v1/wallets/evm`, then sets it as its refund address on the leg. See [Proving wallets](/guides/api-keys#proving-wallets).
+
+On TRON and Solana a proof made with the key is not enough to give: those legs are funded from the login wallet, or from one linked in a signed-in session at hashlock.markets. On Bitcoin any wallet can pay the escrow, but its refund key must be the login wallet's or one linked in such a session. Hashlock refuses an RFQ, quote or accept that gives on a chain the account cannot fund from.
 
 ## Where the agent can be paid
 
