@@ -43,13 +43,15 @@ curl -s -X POST $HL/v1/rfqs -H "Authorization: Bearer $HK" \
 | Retry, same key, same body | The stored response is replayed, with `Idempotency-Replayed: true`. |
 | Same key, different body | `422`. |
 | Retry while the first is still running | `409`. |
-| First response was `504` | **Not stored.** A retry with the same key really runs again. |
+| First response was `409`, `429`, `503` or `504` | **Not stored.** A retry with the same key really runs again. |
 
-Keys are scoped to your account, the HTTP method and the path. Any stored status is replayed, including a `400`: fix the request and use a new key.
+Keys are scoped to your account, the HTTP method and the path. Any other status is stored and replayed, including a `400` and a `500`: fix the request and use a new key.
+
+`409` is a state to wait out or act on (a leg already funded, a step that must come first, an address still missing), `429` a rate limit and `503` "unavailable right now" — none of them is stored, so the retry they invite can succeed.
 
 ### Why 504 is special
 
-`504` is the one status meaning "we do not know what happened":
+`504` means "we do not know what happened":
 
 - On the **settlement builders** and `POST /v1/swaps/{id}/address`: a chain or explorer read of ours timed out. Nothing was changed. Retry.
 - On **`POST /v1/tx/broadcast`**: the node did not answer in time. The transaction **may already be on chain**. Look up the txid before sending it again. Resending the same signed bytes yields the same txid.
