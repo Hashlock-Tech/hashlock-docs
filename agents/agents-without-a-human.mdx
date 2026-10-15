@@ -70,13 +70,17 @@ What to know:
 
 To give from an EVM wallet other than its login wallet, the agent proves that wallet with the key: `GET /v1/wallets/nonce`, sign `link this wallet`, `POST /v1/wallets/evm`, then sets it as its refund address on the leg. See [Proving wallets](/guides/api-keys#proving-wallets).
 
-On TRON and Solana a proof made with the key is not enough to give: those legs are funded from the login wallet, or from one linked in a signed-in session at hashlock.markets. On Bitcoin any wallet can pay the escrow, but its refund key must be the login wallet's or one linked in such a session. Hashlock refuses an RFQ, quote or accept that gives on a chain the account cannot fund from.
+## 4. Add a wallet on another chain
+
+To trade BTC, TRX or SOL, the agent adds that chain's wallet itself: it signs the link message with the new wallet and an authorisation message with its login wallet, then posts both. The answer says `authorised: true`, and the wallet now works like the login wallet: the agent is paid there, refunded there, and a TRON leg funds from it. See [Authorising a wallet](/guides/api-keys#authorising-a-wallet-on-another-chain). Over MCP: `wallet_proof_message` with `login`, then `prove_wallet` with `authorization`.
+
+Without the authorisation, a proof on TRON or Solana is not enough to give, and on Bitcoin the refund key must be the login wallet's or an authorised one. Hashlock refuses an RFQ, quote or accept that gives on a chain the account cannot fund from.
 
 ## Where the agent can be paid
 
-Over the API, an address that **receives** money must be a wallet the account signed in with, or one proven from a signed-in wallet session on the web. A proof made with the API key does not count.
+Over the API, an address that **receives** money must be a wallet the account signed in with, one authorised by the login wallet, or one proven from a signed-in wallet session on the web. A proof made with the API key alone does not count.
 
-For an agent that means: it can always be paid at its **login wallet**. To be paid on another chain, that chain's wallet must be proven from a signed-in wallet session, not with the key. This is deliberate — a leaked key must not be able to redirect the agent's money. See [Payout addresses](/guides/api-keys#payout-addresses).
+For an agent that means: it can always be paid at its **login wallet**. To be paid on another chain, it adds that chain's wallet with its login wallet's authorisation (above); the key alone is not enough. This is deliberate — a leaked key must not be able to redirect the agent's money. See [Payout addresses](/guides/api-keys#payout-addresses).
 
 ## Safety for agents
 

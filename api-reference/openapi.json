@@ -301,7 +301,21 @@
     "/v1/wallets/nonce": {
       "get": {
         "summary": "A single-use nonce to put in the message you are about to sign",
-        "description": "Expires shortly and is consumed by the first proof that presents it. It is a LINK nonce: it cannot be spent at a login endpoint, so the signature you collect is not a session.",
+        "description": "Expires shortly and is consumed by the first proof that presents it. It is a LINK nonce: it cannot be spent at a login endpoint, so the signature you collect is not a session. `?purpose=authorize` issues the nonce for the login wallet's authorisation instead — a separate pool.",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "link",
+                "authorize"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "ok",
@@ -501,7 +515,7 @@
     "/v1/wallets/evm": {
       "post": {
         "summary": "Prove a EVM wallet this account holds",
-        "description": "Sign with personal_sign / EIP-191 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a EVM asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set.",
+        "description": "Sign with personal_sign / EIP-191 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a EVM asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set. ALONE it counts for giving on EVM only. Add `authorization` — your LOGIN wallet signing a message that carries `Hashlock Markets`, the words `authorise this wallet`, the address being linked (and, except for a Bitcoin login, the login address) and a nonce from `GET /v1/wallets/nonce?purpose=authorize` — and the wallet also counts as a payout address, a Bitcoin/Solana refund address and a TRON funding wallet, as if linked at hashlock.markets. That is how an agent with no browser trades across chains.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -527,6 +541,26 @@
                   },
                   "signature": {
                     "type": "string"
+                  },
+                  "authorization": {
+                    "type": "object",
+                    "description": "optional: the account's login wallet vouching for this one (see above)",
+                    "required": [
+                      "address",
+                      "message",
+                      "signature"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               },
@@ -540,7 +574,7 @@
         },
         "responses": {
           "200": {
-            "description": "proven (repeating a proof you already hold is the same 200)",
+            "description": "proven (repeating a proof you already hold is the same 200); `authorised` says whether it counts beyond EVM giving",
             "content": {
               "application/json": {
                 "schema": {
@@ -557,6 +591,9 @@
                     },
                     "proven": {
                       "type": "boolean"
+                    },
+                    "authorised": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -564,7 +601,7 @@
             }
           },
           "400": {
-            "description": "bad signature, a message that does not say `link this wallet`, or a nonce that was never issued / already used",
+            "description": "bad signature, a message that does not say `link this wallet` (or `authorise this wallet`), an authorisation not signed by this account's login wallet or not naming this address, or a nonce that was never issued / already used",
             "content": {
               "application/json": {
                 "schema": {
@@ -590,7 +627,7 @@
     "/v1/wallets/tron": {
       "post": {
         "summary": "Prove a TRON wallet this account holds",
-        "description": "Sign with signMessageV2 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a TRON asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set.",
+        "description": "Sign with signMessageV2 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a TRON asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set. ALONE it counts for giving on EVM only. Add `authorization` — your LOGIN wallet signing a message that carries `Hashlock Markets`, the words `authorise this wallet`, the address being linked (and, except for a Bitcoin login, the login address) and a nonce from `GET /v1/wallets/nonce?purpose=authorize` — and the wallet also counts as a payout address, a Bitcoin/Solana refund address and a TRON funding wallet, as if linked at hashlock.markets. That is how an agent with no browser trades across chains.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -616,6 +653,26 @@
                   },
                   "signature": {
                     "type": "string"
+                  },
+                  "authorization": {
+                    "type": "object",
+                    "description": "optional: the account's login wallet vouching for this one (see above)",
+                    "required": [
+                      "address",
+                      "message",
+                      "signature"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               },
@@ -629,7 +686,7 @@
         },
         "responses": {
           "200": {
-            "description": "proven (repeating a proof you already hold is the same 200)",
+            "description": "proven (repeating a proof you already hold is the same 200); `authorised` says whether it counts beyond EVM giving",
             "content": {
               "application/json": {
                 "schema": {
@@ -646,6 +703,9 @@
                     },
                     "proven": {
                       "type": "boolean"
+                    },
+                    "authorised": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -653,7 +713,7 @@
             }
           },
           "400": {
-            "description": "bad signature, a message that does not say `link this wallet`, or a nonce that was never issued / already used",
+            "description": "bad signature, a message that does not say `link this wallet` (or `authorise this wallet`), an authorisation not signed by this account's login wallet or not naming this address, or a nonce that was never issued / already used",
             "content": {
               "application/json": {
                 "schema": {
@@ -679,7 +739,7 @@
     "/v1/wallets/solana": {
       "post": {
         "summary": "Prove a Solana wallet this account holds",
-        "description": "Sign with ed25519 signMessage, base58 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a Solana asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set.",
+        "description": "Sign with ed25519 signMessage, base58 a message carrying `Hashlock Markets`, the words `link this wallet`, the address itself and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a Solana asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set. ALONE it counts for giving on EVM only. Add `authorization` — your LOGIN wallet signing a message that carries `Hashlock Markets`, the words `authorise this wallet`, the address being linked (and, except for a Bitcoin login, the login address) and a nonce from `GET /v1/wallets/nonce?purpose=authorize` — and the wallet also counts as a payout address, a Bitcoin/Solana refund address and a TRON funding wallet, as if linked at hashlock.markets. That is how an agent with no browser trades across chains.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -705,6 +765,26 @@
                   },
                   "signature": {
                     "type": "string"
+                  },
+                  "authorization": {
+                    "type": "object",
+                    "description": "optional: the account's login wallet vouching for this one (see above)",
+                    "required": [
+                      "address",
+                      "message",
+                      "signature"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               },
@@ -718,7 +798,7 @@
         },
         "responses": {
           "200": {
-            "description": "proven (repeating a proof you already hold is the same 200)",
+            "description": "proven (repeating a proof you already hold is the same 200); `authorised` says whether it counts beyond EVM giving",
             "content": {
               "application/json": {
                 "schema": {
@@ -735,6 +815,9 @@
                     },
                     "proven": {
                       "type": "boolean"
+                    },
+                    "authorised": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -742,7 +825,7 @@
             }
           },
           "400": {
-            "description": "bad signature, a message that does not say `link this wallet`, or a nonce that was never issued / already used",
+            "description": "bad signature, a message that does not say `link this wallet` (or `authorise this wallet`), an authorisation not signed by this account's login wallet or not naming this address, or a nonce that was never issued / already used",
             "content": {
               "application/json": {
                 "schema": {
@@ -768,7 +851,7 @@
     "/v1/wallets/bitcoin": {
       "post": {
         "summary": "Prove a Bitcoin wallet this account holds",
-        "description": "Sign with BIP-322 (UniSat / OKX `signMessage(msg, 'bip322-simple')`) a message carrying `Hashlock Markets`, the words `link this wallet`, and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a Bitcoin asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set.",
+        "description": "Sign with BIP-322 (UniSat / OKX `signMessage(msg, 'bip322-simple')`) a message carrying `Hashlock Markets`, the words `link this wallet`, and a nonce from `GET /v1/wallets/nonce`. Needed before this account can create an order that GIVES a Bitcoin asset. The proof is recorded as a proof — it does not become the account's payout identity, which only a wallet session can set. ALONE it counts for giving on EVM only. Add `authorization` — your LOGIN wallet signing a message that carries `Hashlock Markets`, the words `authorise this wallet`, the address being linked (and, except for a Bitcoin login, the login address) and a nonce from `GET /v1/wallets/nonce?purpose=authorize` — and the wallet also counts as a payout address, a Bitcoin/Solana refund address and a TRON funding wallet, as if linked at hashlock.markets. That is how an agent with no browser trades across chains.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -794,6 +877,26 @@
                   },
                   "signature": {
                     "type": "string"
+                  },
+                  "authorization": {
+                    "type": "object",
+                    "description": "optional: the account's login wallet vouching for this one (see above)",
+                    "required": [
+                      "address",
+                      "message",
+                      "signature"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               },
@@ -807,7 +910,7 @@
         },
         "responses": {
           "200": {
-            "description": "proven (repeating a proof you already hold is the same 200)",
+            "description": "proven (repeating a proof you already hold is the same 200); `authorised` says whether it counts beyond EVM giving",
             "content": {
               "application/json": {
                 "schema": {
@@ -824,6 +927,9 @@
                     },
                     "proven": {
                       "type": "boolean"
+                    },
+                    "authorised": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -831,7 +937,7 @@
             }
           },
           "400": {
-            "description": "bad signature, a message that does not say `link this wallet`, or a nonce that was never issued / already used",
+            "description": "bad signature, a message that does not say `link this wallet` (or `authorise this wallet`), an authorisation not signed by this account's login wallet or not naming this address, or a nonce that was never issued / already used",
             "content": {
               "application/json": {
                 "schema": {
@@ -1164,6 +1270,59 @@
         "operationId": "postRfqs"
       }
     },
+    "/v1/rfqs/mine": {
+      "get": {
+        "summary": "Your own RFQs — private ones included, every status — cursor-paginated",
+        "description": "The order book lists only public open RFQs. This lists everything you created, newest first: how to find an order whose create call timed out, and its id to cancel it.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "page size, 1–100 (default 20)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "nextCursor from the previous page",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rfqs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Rfq"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "pass as ?cursor for the next page; null = last page"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getRfqsMine"
+      }
+    },
     "/v1/rfqs/{id}/threads": {
       "get": {
         "summary": "The negotiation threads on an RFQ — every one for its creator, your own for a maker",
@@ -1492,6 +1651,26 @@
           },
           "400": {
             "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "a state to wait out or act on, not an error: the leg is already funded, the initiator's leg must be funded first, or an address is still missing — the message says which (never stored by Idempotency-Key)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "temporarily unavailable (TRON funding paused, or the already-funded check could not be read) — retry",
             "content": {
               "application/json": {
                 "schema": {
@@ -1892,7 +2071,7 @@
     "/v1/swaps/{id}/address": {
       "post": {
         "summary": "Set your receive (payout) / refund address for a leg",
-        "description": "Set your receive (payout) / refund address for a leg. Bitcoin: the compressed pubkey (hex) — the P2WSH is derived once both sides are set. Required before funding. An address that RECEIVES money — the payout one, and on Bitcoin and Solana the refund one too — must be a wallet this account signed in with, or proved from a signed-in wallet session on the web (for Bitcoin, the pubkey of such an address). A proof made with an API key (POST /v1/wallets/<chain>) widens what you can trade but does not count here, so a leaked key cannot redirect your money.",
+        "description": "Set your receive (payout) / refund address for a leg. Bitcoin: the compressed pubkey (hex) — the P2WSH is derived once both sides are set. Required before funding. An address that RECEIVES money — the payout one, and on Bitcoin and Solana the refund one too — must be a wallet this account signed in with, one proven with the login wallet's authorisation (POST /v1/wallets/<chain> with `authorization`), or one proved from a signed-in wallet session on the web (for Bitcoin, the pubkey of such an address). A proof made with an API key alone widens what you can trade but does not count here, so a leaked key cannot redirect your money.",
         "parameters": [
           {
             "name": "id",

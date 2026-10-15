@@ -112,7 +112,7 @@ Minting is limited per client IP: 20 mint requests per hour.
 
 An order that **gives** an asset needs a wallet the account can fund that leg from. A key starts with only the address its account signed in with. `GET /v1/me` lists, per chain, the `login` address and the `proven` ones.
 
-Over an API key, a wallet proved below lets the account give on **EVM** (set it as the refund address on the leg — it sends the fund). On **TRON and Solana** it does not: those legs are funded from the login wallet, or from one linked in a signed-in session at hashlock.markets. On **Bitcoin** any wallet can pay the escrow, but its refund key must be the login wallet's or one linked in such a session. An RFQ, quote or accept that gives on a chain the account cannot fund from is refused.
+Over an API key, a wallet proved below lets the account give on **EVM** (set it as the refund address on the leg — it sends the fund). On **TRON and Solana** it does not: those legs are funded from the login wallet, or one [authorised](#authorising-a-wallet-on-another-chain) by it or linked in a signed-in session at hashlock.markets. On **Bitcoin** any wallet can pay the escrow, but its refund key must be one of those wallets'. An RFQ, quote or accept that gives on a chain the account cannot fund from is refused.
 
 1. `GET /v1/wallets/nonce` → a single-use **link** nonce.
 2. Sign a message that contains `Hashlock Markets`, the words `link this wallet`, the address, and `Nonce: <nonce>`:
@@ -138,17 +138,41 @@ Responses: `200` proven (repeating a proof you hold is also `200`); `400` bad si
 
 The link nonce is not a login nonce, and a key-mint nonce is not either. Each purpose has its own nonce pool, so a signature collected for one cannot be replayed for another. A link signature is not a session for that wallet's account.
 
+### Authorising a wallet on another chain
+
+A proof alone lets the account give from that wallet on EVM. To make a wallet count everywhere — you are paid at it, refunded at it, and a TRON leg funds from it — add an **authorisation** signed by the account's **login wallet**:
+
+1. `GET /v1/wallets/nonce` → a link nonce, and `GET /v1/wallets/nonce?purpose=authorize` → an authorisation nonce.
+2. Sign the link message (above) with the **new** wallet, and this message with the **login** wallet:
+
+   ```text
+   Hashlock Markets — authorise this wallet for my account.
+
+   Account wallet: 0xYourLoginWallet
+   Wallet: TNewTronWallet
+   Nonce: 4c0f7a2d9b1e4e8b8c3f5a6d7e0b1c2d
+   ```
+
+3. `POST /v1/wallets/{family}` with `{ address, message, signature, authorization: { address, message, signature } }`, where `authorization.address` is the login wallet.
+
+The answer carries `authorised: true`. An authorisation signed by any wallet other than the account's login wallet is refused (`400`). Sign both within 5 minutes; each nonce is single-use. Only authorise wallets whose keys you alone hold: an authorised wallet can also sign in to the account.
+
+On TRON a leg is always funded from one wallet: the login TRON wallet, else the oldest one authorised by the login wallet or linked at hashlock.markets.
+
 `DELETE /v1/wallets/{address}` withdraws a proof. Login addresses are not proofs and cannot be removed this way. Putting a proof back needs a new signature from that wallet.
 
 ## Payout addresses
 
-A proof made with an API key widens what the account can **trade**. It does **not** count as a place to **receive** money.
+A proof made with an API key alone widens what the account can **trade**. It does **not** count as a place to **receive** money unless it carries the login wallet's authorisation.
 
 Over the API, `POST /v1/swaps/{id}/address` accepts an address that receives money — the payout address, and on Bitcoin and Solana the refund address too — only if it is:
 
 - a wallet the account **signed in with**, or
-- a wallet proven from a **signed-in wallet session on the web**. For Bitcoin, the pubkey of such an address.
+- a wallet proven from a **signed-in wallet session on the web**, or
+- a wallet proven with the **login wallet's authorisation** ([above](#authorising-a-wallet-on-another-chain)).
+
+For Bitcoin, the pubkey of such an address.
 
 On EVM and TRON a refund returns to whoever funded, so the refund address only names the funder and is not restricted.
 
-This way a leaked key cannot point your money at the thief's wallet. If you need to be paid at a wallet that is not your login wallet, prove it from the web app while signed in.
+This way a leaked key cannot point your money at the thief's wallet. To be paid at a wallet that is not your login wallet, authorise it with the login wallet, or prove it from the web app while signed in.

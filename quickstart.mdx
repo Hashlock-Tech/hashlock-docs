@@ -74,7 +74,7 @@ await fetch(`${HL}/v1/wallets/evm`, {
 });
 ```
 
-TRON, Solana and Bitcoin use `POST /v1/wallets/tron|solana|bitcoin`. See [API keys](/guides/api-keys#proving-wallets).
+TRON, Solana and Bitcoin use `POST /v1/wallets/tron|solana|bitcoin`. To be paid on, or fund TRON from, a wallet on another chain, add your login wallet's authorisation — see [Authorising a wallet](/guides/api-keys#authorising-a-wallet-on-another-chain).
 
 ## 3. Create an RFQ (taker) or quote one (maker)
 
@@ -163,7 +163,7 @@ curl -s -X POST $HL/v1/swaps/$SWAP_ID/address -H "Authorization: Bearer $HK" \
   -d '{ "chain": "ethereum", "address": "0xYourAddress" }'
 ```
 
-Pass `"leg": "a"` or `"b"` only when both legs are on the same chain. Over the API, an address that **receives** money must be your login wallet or one proven from a signed-in web session — see [API keys](/guides/api-keys#payout-addresses).
+Pass `"leg": "a"` or `"b"` only when both legs are on the same chain. Over the API, an address that **receives** money must be your login wallet, one it authorised, or one proven from a signed-in web session — see [API keys](/guides/api-keys#payout-addresses).
 
 ## 6. Fund your leg
 
