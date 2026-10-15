@@ -54,6 +54,9 @@ A token must pass **all** of them.
 - Not a honeypot: it can be sold, and the whole balance can be sold.
 - No buy, sell or transfer tax.
 - No unlimited mint, no blacklist, no pausable transfers, no hidden or reclaimable owner, no owner-adjustable balances or taxes, not upgradeable.
+- Some launchpad mechanics that scanners flag are accepted, because they cannot touch a holder:
+  - a **Doppler** token's (e.g. Bankr's) capped yearly mint and its launch-pool lock, which blocks transfers into its own launch pool only — accepted while the Doppler Airlock still owns the token, as read on chain. Once ownership passes to the token's governance, both count as risks again;
+  - a **Clanker** token's bridge-only cross-chain mint.
 - **Our own transfer test**: a transfer is simulated on chain from a real holder, and must arrive whole.
 
 **Solana tokens**
@@ -69,17 +72,17 @@ A token must pass **all** of them.
 | Measure | Bar |
 |---|---|
 | Market cap (never FDV) | ≥ $1,000,000 |
-| Liquidity | ≥ $100,000 |
-| 24h volume | ≥ $250,000 |
+| Liquidity (across pools) | ≥ $100,000 |
+| 24h volume (across pools) | ≥ $250,000 |
 | Holders | ≥ 500 |
 | Age of its first trading pair | ≥ 24 hours |
 | Top 10 holders | ≤ 40% |
 
-The top-10 share leaves out the token itself, burn addresses and locked holders, and the pools and launchpad contracts Hashlock recognises: on EVM chains the Uniswap v4 pool manager and the launchpads' own contracts (a Uniswap v2 or v3 pair still counts as a holder); on Solana the Meteora, Raydium LaunchLab and CPMM pool vaults and Jupiter Lock vesting escrows.
+The top-10 share leaves out the token itself, burn addresses and locked holders, and the pools and launchpad contracts Hashlock recognises: on EVM chains the Uniswap v4 pool manager, the launchpads' own contracts and Bankr's BNKR staking contract, whose balance is its stakers' deposits (a Uniswap v2 or v3 pair still counts as a holder); on Solana the Meteora, Raydium LaunchLab and CPMM pool vaults and Jupiter Lock vesting escrows.
 
 ### Wait or reject
 
-A check the token's own content fails — a honeypot flag, a tax, a mint authority, a look-alike symbol, a transfer that reverts for every holder tried — is a **reject**, and it is final. Anything that time can change or a node outage could cause — traction not there yet, a scanner or node that did not answer — is a **wait**.
+A check the token's own content fails — a honeypot flag, a tax, a mint authority, a look-alike symbol, a transfer that reverts for every holder tried — is a **reject**, and it is final. Anything that time can change or a node outage could cause — traction not there yet, a scanner, node or market-data source that did not answer — is a **wait**. A market-data outage neither closes nor reopens a listed token; its safety checks still run.
 
 ## When a listed token closes
 
@@ -97,4 +100,4 @@ A closed token takes no new RFQs or quotes, and its open orders leave the board.
   <img src="/images/goplus.png" alt="GoPlus Security" style={{ height: '22px', display: 'inline' }} />
 </a>
 
-Security checks are powered by [GoPlus Security](https://gopluslabs.io), together with Hashlock's own on-chain checks. Market data comes from DexScreener.
+Security checks are powered by [GoPlus Security](https://gopluslabs.io), together with Hashlock's own on-chain checks. Market data comes from DexScreener and GeckoTerminal. Liquidity and 24h volume are each the larger of DexScreener's total over the pairs it reports and GeckoTerminal's total over all of the token's pools; market cap and pair age come from DexScreener.
