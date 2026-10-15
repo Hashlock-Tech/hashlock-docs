@@ -6,7 +6,7 @@ description: "How tokens beyond the curated set get on Hashlock Markets: launchp
 Hashlock Markets trades two kinds of assets:
 
 - **Curated** — native coins and the stablecoins Hashlock runs itself (`verified: true` in [`GET /v1/assets`](/api-reference/introduction)).
-- **Listed** — tokens that passed automated safety and traction checks (`verified: false`, `source` says how). Every app shows them as **unverified** next to their contract address. A symbol anyone can copy is not an identity: check the address before you trade.
+- **Listed** — tokens that passed automated safety and traction checks (`verified: false`, `source` says how). Every app marks them **listed** next to their contract address. A symbol anyone can copy is not an identity: check the address before you trade.
 
 A listed token settles exactly like a curated one, through the same HTLC escrow.
 
@@ -83,13 +83,13 @@ A check the token's own content fails — a honeypot flag, a tax, a mint authori
 
 ## When a listed token closes
 
-Listed tokens are re-checked **daily**. A token **closes** when:
+Listed tokens are re-checked **every hour**. A token **closes** when:
 
 - its market falls below the bar: market cap, liquidity, 24h volume or pair age (holder count and the top-10 share only gate the first listing);
 - it fails a safety check — a close for safety is final;
 - it has not been traded on Hashlock for **3 months** since it was listed or last reopened.
 
-A closed token takes no new RFQs or quotes, and its open orders leave the board. **Swaps already agreed settle normally.** A token closed for its market reopens when it passes every check again, at the daily re-check or by `POST /v1/assets`. A token closed for inactivity reopens only through `POST /v1/assets`, once it passes every check. Curated assets never close automatically.
+A closed token takes no new RFQs or quotes, and its open orders leave the board. **Swaps already agreed settle normally.** A token closed for its market reopens when it passes every check again, at the hourly re-check or by `POST /v1/assets`. A token closed for inactivity reopens only through `POST /v1/assets`, once it passes every check. Curated assets never close automatically.
 
 ## Security data
 

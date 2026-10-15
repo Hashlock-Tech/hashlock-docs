@@ -987,7 +987,7 @@
       },
       "post": {
         "summary": "Ask for a token to be listed",
-        "description": "Runs the same checks as the launchpad listener: an on-chain check (EVM: a simulated transfer; Solana: a classic SPL mint with no mint or freeze authority — Token-2022 is not listable), security scan (Powered by GoPlus Security) and market thresholds (market cap ≥ $1M, liquidity ≥ $100k, 24h volume ≥ $250k, ≥ 500 holders, ≥ 24h old, top 10 holders ≤ 40% excluding pools). EVM chains and Solana, where Hashlock supports them. A listed token is UNVERIFIED. 20 requests an hour per account.",
+        "description": "Runs the same checks as the launchpad listener: an on-chain check (EVM: a simulated transfer; Solana: a classic SPL mint with no mint or freeze authority — Token-2022 is not listable), security scan (Powered by GoPlus Security) and market thresholds (market cap ≥ $1M, liquidity ≥ $100k, 24h volume ≥ $250k, ≥ 500 holders, ≥ 24h old, top 10 holders ≤ 40% excluding pools). EVM chains and Solana, where Hashlock supports them. A listed token has `verified: false`. 20 requests an hour per account.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1037,7 +1037,7 @@
             }
           },
           "201": {
-            "description": "listed now, as an unverified asset",
+            "description": "listed now (`verified: false`)",
             "content": {
               "application/json": {
                 "schema": {
