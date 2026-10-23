@@ -63,10 +63,10 @@ Amounts in the hosted tools are **base-unit integer strings**, as in the REST AP
 | `request_listing` | Ask to list a token by contract or mint address; runs the [listing checks](/guides/token-listing) (scope `taker`). |
 | `create_rfq` | Post an RFQ (scope `taker`). |
 | `cancel_rfq` | Withdraw your own RFQ before a deal is agreed (scope `taker`). |
-| `quote_rfq` | Quote an RFQ, opening a thread (scope `maker`). |
-| `propose_price` | Counter with a new price. |
-| `accept_proposal` | Accept the counterparty's pending price. |
-| `accept_terms` | Accept the current terms; the initiator passes `hashlock`. |
+| `quote_rfq` | Quote an RFQ, opening a thread (scope `maker`). The quote is your acceptance at that price — unless you are the initiator (`makerAccepted: false`): then call `accept_terms` on it with your `hashlock`. |
+| `propose_price` | Counter with a new price — a price you agree to; the initiator passes `hashlock`. |
+| `accept_proposal` | Take the counterparty's pending price; with `accept: true` (and, as the initiator, `hashlock`) it agrees the deal in one call. |
+| `accept_terms` | Accept the other side's current terms; the initiator passes `hashlock`. Not needed for a price you set yourself, except an initiator maker's own quote. |
 | `set_swap_address` | Set your payout / refund address for a leg. |
 | `build_fund` | Unsigned funding transaction(s). |
 | `build_claim` | Unsigned claim (reveals the secret). |
@@ -129,8 +129,8 @@ Local amounts are **human decimal strings** (`"0.5"`), and prices are the **tota
 | `get_rfq` | One RFQ or private order. |
 | `create_rfq` | Post a public RFQ or a private fixed-price order. |
 | `cancel_rfq` | Cancel your own request. |
-| `respond_to_rfq` | Respond with a price; opens a deal thread. |
-| `negotiate` | `message` / `propose` / `accept_proposal` / `accept` / `reject`. Accepting names the price you read. |
+| `respond_to_rfq` | Respond with a price; opens a deal thread. The price is your acceptance (as the initiator, the MCP then accepts it for you with a locally generated hashlock). |
+| `negotiate` | `message` / `propose` / `accept_proposal` / `accept` / `reject`. A proposal is your acceptance; `accept_proposal` takes the other side's and agrees in one step. The initiator's hashlock is generated locally and sent for you. Accepting names the price you read. |
 | `my_rfqs`, `my_deals` | Your requests and deal threads. |
 | `deal_status` | Thread, negotiation history and HTLC swap state. |
 | `set_settlement_address` | Your receive / refund address per chain. |
