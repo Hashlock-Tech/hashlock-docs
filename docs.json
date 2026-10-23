@@ -23,11 +23,42 @@
     ]
   },
   "colors": {
-    "primary": "#0071e3",
-    "light": "#3b95ff",
-    "dark": "#0071e3"
+    "primary": "#665bff",
+    "light": "#a39cff",
+    "dark": "#5a4ff0"
   },
-  "favicon": "/favicon.png",
+  "background": {
+    "color": {
+      "light": "#f5f6f8",
+      "dark": "#0b0e14"
+    }
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Satoshi",
+      "weight": 500,
+      "source": "/fonts/Satoshi-Medium.woff2",
+      "format": "woff2"
+    },
+    "body": {
+      "family": "Satoshi",
+      "weight": 400,
+      "source": "/fonts/Satoshi-Regular.woff2",
+      "format": "woff2"
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://hashlock.markets"
+  },
+  "favicon": {
+    "light": "/favicon-light.svg",
+    "dark": "/favicon-dark.svg"
+  },
   "navbar": {
     "links": [
       {

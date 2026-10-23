@@ -1,0 +1,15 @@
+/* The header logo at the size /app shows it (h-8); Mintlify draws it smaller. */
+.nav-logo {
+  height: 2rem !important;
+}
+
+/* The GoPlus logo is black: white on the dark theme, as on hashlock.markets/developers. */
+.dark .goplus-logo {
+  filter: invert(1);
+}
+
+/* A logo link, not a text link: no underline. */
+.goplus-link {
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
