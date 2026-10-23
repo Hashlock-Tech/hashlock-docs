@@ -3,6 +3,13 @@
   height: 2rem !important;
 }
 
+/* The GoPlus logo at its own proportions: the hosted site stretches images to the column's width. */
+.goplus-logo {
+  width: auto !important;
+  height: 32px !important;
+  max-width: none !important;
+}
+
 /* The GoPlus logo is black: white on the dark theme, as on hashlock.markets/developers. */
 .dark .goplus-logo {
   filter: invert(1);
