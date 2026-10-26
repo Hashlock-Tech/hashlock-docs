@@ -33,6 +33,7 @@ The builder response names how to sign it in its `sign` field.
 - One pool holds every asset: TRC-20 tokens and native TRX.
 - **Fund** (`sign: "tron-txid"`): a TRC-20 leg is two transactions, `approve(pool, amount + fee)` then `fund(...)`; a native TRX leg is `fund(...)` alone, carrying `amount + fee` as its call value. Sign each `txID` with secp256k1 and broadcast the signed transaction objects.
 - `claim` and `refund` take the on-chain swap id the pool emitted at funding. The builders read it for you.
+- A TRX payout the recipient refuses is not lost: the pool credits it to that address, which takes it out with `withdrawOwed(to)`. Only an account that can make that call can recover it, so receive TRX at an ordinary wallet address, not a contract.
 - When the pool is rotated, new swaps go to the new pool and the old one keeps honoring claim and refund until its timelocks lapse. The builders settle in the pool the leg was funded in.
 
 ## Solana — program with a PDA escrow
