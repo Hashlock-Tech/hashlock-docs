@@ -172,12 +172,557 @@
       },
       "Swap": {
         "type": "object",
+        "description": "leg a = what the maker gives, leg b = what the maker wants",
+        "required": [
+          "id",
+          "threadId",
+          "status",
+          "makerId",
+          "takerId",
+          "initiatorUserId",
+          "hashlock",
+          "aAssetId",
+          "aChain",
+          "aAmount",
+          "aTimelock",
+          "bAssetId",
+          "bChain",
+          "bAmount",
+          "bTimelock"
+        ],
         "properties": {
           "id": {
             "type": "string"
           },
+          "rfqId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "threadId": {
+            "type": "string"
+          },
           "status": {
             "type": "string"
+          },
+          "makerId": {
+            "type": "string"
+          },
+          "takerId": {
+            "type": "string"
+          },
+          "initiatorUserId": {
+            "type": "string",
+            "description": "funds the long leg first and holds the secret"
+          },
+          "hashlock": {
+            "type": "string",
+            "description": "sha256(secret), hex"
+          },
+          "secretCiphertext": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "the secret once revealed on chain; null before"
+          },
+          "feeBps": {
+            "type": "integer"
+          },
+          "feeAmount": {
+            "type": "string",
+            "description": "base units of feeAssetId, paid by the taker"
+          },
+          "feeAssetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aAssetId": {
+            "type": "string"
+          },
+          "aChain": {
+            "type": "string"
+          },
+          "aAmount": {
+            "type": "string",
+            "description": "base units"
+          },
+          "aTimelock": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "aPayoutAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aRefundAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aHtlcAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aFundTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aClaimTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aRefundTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bAssetId": {
+            "type": "string"
+          },
+          "bChain": {
+            "type": "string"
+          },
+          "bAmount": {
+            "type": "string",
+            "description": "base units"
+          },
+          "bTimelock": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bPayoutAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bRefundAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bHtlcAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bFundTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bClaimTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bRefundTx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AcceptResult": {
+        "type": "object",
+        "properties": {
+          "thread": {
+            "$ref": "#/components/schemas/Thread"
+          },
+          "swap": {
+            "$ref": "#/components/schemas/Swap",
+            "description": "present once both sides have accepted — the swap the agreement created"
+          }
+        }
+      },
+      "Quote": {
+        "type": "object",
+        "required": [
+          "id",
+          "rfqId",
+          "makerId",
+          "quoteAmount",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rfqId": {
+            "type": "string"
+          },
+          "makerId": {
+            "type": "string"
+          },
+          "quoteAmount": {
+            "type": "string",
+            "description": "base units"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "accepted",
+              "rejected",
+              "withdrawn",
+              "superseded"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Thread": {
+        "type": "object",
+        "required": [
+          "id",
+          "rfqId",
+          "takerId",
+          "makerId",
+          "status",
+          "takerAccepted",
+          "makerAccepted",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "one maker's negotiation on an RFQ",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rfqId": {
+            "type": "string"
+          },
+          "takerId": {
+            "type": "string"
+          },
+          "makerId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "agreed",
+              "closed"
+            ]
+          },
+          "currentQuoteAmount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "the price on the table, base units"
+          },
+          "pendingAmount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "a counter-proposal waiting for the other side, base units"
+          },
+          "pendingBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "who proposed pendingAmount"
+          },
+          "takerAccepted": {
+            "type": "boolean"
+          },
+          "makerAccepted": {
+            "type": "boolean"
+          },
+          "hashlock": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha256(secret), hex — the initiator's, once it has accepted"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "id",
+          "threadId",
+          "senderId",
+          "kind",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "senderId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "quote",
+              "accept"
+            ]
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoteAmount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "base units, on a quote message"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "events",
+          "enabled"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "empty = every event"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastDeliveryAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastStatus": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "HTTP status of the last delivery attempt; null = never delivered"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SigningMaterial": {
+        "type": "object",
+        "description": "What to sign, per chain family; `sign` says which shape it is. `evm-tx`: sign and send each of `txs` in order, from `from` when given. `btc-payment` (fund): pay `amountSats` to `payTo` (and `feeAmountSats` to `feePayTo` when present). `btc-sighash` (claim/refund): sign each of `sighashHexes`, then broadcast `{ psbtBase64, signaturesHex, preimageHex? }`. `solana-tx`: sign `transactionBase64` and broadcast it. `tron-txid`: sign each `transactions[].txID` and broadcast each signed `transaction`.",
+        "required": [
+          "chain",
+          "family",
+          "sign"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "evm",
+              "bitcoin",
+              "svm",
+              "tvm"
+            ]
+          },
+          "sign": {
+            "type": "string",
+            "enum": [
+              "evm-tx",
+              "btc-payment",
+              "btc-sighash",
+              "solana-tx",
+              "tron-txid"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "what to do with it, in words"
+          },
+          "chainId": {
+            "type": "integer",
+            "description": "evm-tx"
+          },
+          "from": {
+            "type": "string",
+            "description": "evm-tx (fund) and tron-txid: the address that must sign"
+          },
+          "txs": {
+            "type": "array",
+            "description": "evm-tx: unsigned transactions (an ERC-20 fund is approve, then createSwap)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "to": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "hex wei"
+                }
+              }
+            }
+          },
+          "payTo": {
+            "type": "string",
+            "description": "btc-payment: the escrow (P2WSH) address"
+          },
+          "amountSats": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "btc-payment: sats still due to the escrow (string); btc-sighash: what the spend pays out after the network fee (integer)"
+          },
+          "topUp": {
+            "type": "boolean",
+            "description": "btc-payment: the escrow already holds part of the amount"
+          },
+          "feePayTo": {
+            "type": "string",
+            "description": "btc-payment: the protocol fee treasury, when this leg carries the fee"
+          },
+          "feeAmountSats": {
+            "type": "string",
+            "description": "btc-payment: the protocol fee in sats"
+          },
+          "toAddress": {
+            "type": "string",
+            "description": "btc-sighash: where the spend pays"
+          },
+          "psbtBase64": {
+            "type": "string",
+            "description": "btc-sighash"
+          },
+          "sighashHex": {
+            "type": "string",
+            "description": "btc-sighash: equals sighashHexes[0]"
+          },
+          "sighashHexes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "btc-sighash: one per input, same key"
+          },
+          "feeSats": {
+            "type": "integer",
+            "description": "btc-sighash: the network fee"
+          },
+          "preimageHex": {
+            "type": "string",
+            "description": "btc-sighash, claim: the secret you sent, to pass back on broadcast"
+          },
+          "timelockUnix": {
+            "type": "integer",
+            "description": "refund (btc-sighash, solana-tx): the leg timelock"
+          },
+          "escrow": {
+            "type": "string",
+            "description": "solana-tx: the escrow account"
+          },
+          "transactionBase64": {
+            "type": "string",
+            "description": "solana-tx: the unsigned transaction"
+          },
+          "blockhash": {
+            "type": "string",
+            "description": "solana-tx"
+          },
+          "lastValidBlockHeight": {
+            "type": "integer",
+            "description": "solana-tx: rebuild once the chain passes it"
+          },
+          "transactions": {
+            "type": "array",
+            "description": "tron-txid: unsigned transactions (a TRC-20 fund is approve, then fund)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "transaction": {
+                  "type": "object"
+                },
+                "txID": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1032,8 +1577,10 @@
                       }
                     },
                     "nextOffset": {
-                      "type": "integer",
-                      "nullable": true
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   }
                 }
@@ -1307,8 +1854,10 @@
                       }
                     },
                     "nextCursor": {
-                      "type": "string",
-                      "nullable": true,
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "description": "pass as ?cursor for the next page; null = last page"
                     }
                   }
@@ -1424,8 +1973,10 @@
                       }
                     },
                     "nextCursor": {
-                      "type": "string",
-                      "nullable": true,
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "description": "pass as ?cursor for the next page; null = last page"
                     }
                   }
@@ -1462,7 +2013,7 @@
                     "threads": {
                       "type": "array",
                       "items": {
-                        "type": "object"
+                        "$ref": "#/components/schemas/Thread"
                       }
                     }
                   }
@@ -1503,7 +2054,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rfq": {
+                      "$ref": "#/components/schemas/Rfq"
+                    }
+                  }
                 }
               }
             }
@@ -1609,11 +2165,19 @@
         },
         "responses": {
           "201": {
-            "description": "created",
+            "description": "created — your quote, and the thread it opened (or updated)",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "quote": {
+                      "$ref": "#/components/schemas/Quote"
+                    },
+                    "thread": {
+                      "$ref": "#/components/schemas/Thread"
+                    }
+                  }
                 }
               }
             }
@@ -1671,8 +2235,10 @@
                       }
                     },
                     "nextCursor": {
-                      "type": "string",
-                      "nullable": true
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   }
                 }
@@ -1758,7 +2324,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SigningMaterial"
                 }
               }
             }
@@ -1859,7 +2425,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SigningMaterial"
                 }
               }
             }
@@ -1928,7 +2494,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SigningMaterial"
                 }
               }
             }
@@ -1976,7 +2542,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "$ref": "#/components/schemas/Thread"
+                    },
+                    "rfq": {
+                      "$ref": "#/components/schemas/Rfq"
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    },
+                    "swap": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Swap"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "the swap once both sides accepted, else null"
+                    }
+                  }
                 }
               }
             }
@@ -2041,7 +2632,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "$ref": "#/components/schemas/Thread"
+                    }
+                  }
                 }
               }
             }
@@ -2112,7 +2708,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/AcceptResult"
                 }
               }
             }
@@ -2178,7 +2774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/AcceptResult"
                 }
               }
             }
@@ -2456,7 +3052,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "webhooks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Webhook"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -2502,11 +3106,21 @@
         },
         "responses": {
           "201": {
-            "description": "created — { webhook, secret }",
+            "description": "created — { webhook, secret }; the secret is shown only here",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "webhook": {
+                      "$ref": "#/components/schemas/Webhook",
+                      "description": "lastDeliveryAt, lastStatus and createdAt are absent here"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "whsec_… — verifies x-hashlock-signature"
+                    }
+                  }
                 }
               }
             }
@@ -2540,7 +3154,22 @@
         ],
         "responses": {
           "200": {
-            "description": "ok"
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "not found",
@@ -2575,7 +3204,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "deliveryId": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
