@@ -11,7 +11,9 @@ The endpoint pages in this section are generated from the API's OpenAPI spec, pu
 |---|---|---|
 | Production | `https://api.hashlock.markets` | Live on mainnet. |
 
-All paths start with `/v1`. The maker feed is a WebSocket at `wss://<host>/v1/ws`.
+All paths start with `/v1`, so the base URL is `https://api.hashlock.markets/v1`. The maker feed is a WebSocket at `wss://api.hashlock.markets/v1/ws`.
+
+The app's host serves the same API at `https://hashlock.markets/api/v1` (and the feed at `wss://hashlock.markets/api/v1/ws`). It is an alias with the same keys and the same rate budget; these docs use `https://api.hashlock.markets/v1`.
 
 ## Authentication
 

@@ -105,7 +105,7 @@ Run the npm package with your own keys — use a dedicated key with only the fun
 
 The first configured key (EVM → TRON → BTC → Solana) opens the session; each key also signs settlement on its chain. With no key set, the read-only tools (`list_assets`, `list_open_rfqs`, `get_rfq`) still work.
 
-`HASHLOCK_API_URL` is required — it is the address of the Hashlock Markets API to connect to — and has no default.
+`HASHLOCK_API_URL` is required and has no default. It is `https://hashlock.markets/api`: the local server signs in with a wallet and uses the app's session API there, not the `/v1` key API at `https://api.hashlock.markets/v1` that the hosted server and the [API reference](/api-reference/introduction) use.
 
 The MCP server runs on your machine and sends your fund, claim and refund transactions to each blockchain through a node URL (an RPC endpoint). The defaults are free public nodes; they work, but they are shared and rate-limited — for regular trading, use your own:
 
