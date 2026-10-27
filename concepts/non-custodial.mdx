@@ -7,7 +7,12 @@ description: "What the server and the keeper can and cannot do with your funds."
 
 The fund, claim and refund endpoints return **unsigned** transactions. You sign them with your own key, wallet or HSM and submit them through `POST /v1/tx/broadcast` (or any node of your own). The server never holds your private keys.
 
-The initiator's secret is generated on the initiator's side. The server receives only `sha256(secret)` until the initiator reveals the secret on chain by claiming.
+The initiator's secret is generated and kept on the initiator's side; the deal is agreed with `sha256(secret)` alone. The secret first reaches the server at claim time, a moment before the claim makes it public on chain:
+
+- the claim builder (`POST /v1/swaps/{id}/legs/{leg}/claim`) takes it in the request body, on every chain, because the claim transaction carries it;
+- the hashlock.markets app and the local MCP server report it right after broadcasting their claim, so the keeper can settle the other leg without waiting for confirmations.
+
+The claim builder does not store it. The server records it once a client reports it or its watcher reads it from the chain, where it is public by then. Hashlock's own clients never send it before they claim.
 
 ## Escrow holds the principal, not Hashlock
 

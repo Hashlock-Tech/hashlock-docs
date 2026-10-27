@@ -40,7 +40,7 @@ Standard OAuth 2.1, so a compliant client drives it unattended.
 Codes are single-use and expire in 60 seconds. Redirect URIs are allowlisted; loopback is permitted per RFC 8252. The issued token **is** the API key, so a grant is revocable from the same list as every other key.
 </Accordion>
 
-The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. The initiator supplies their own `hashlock` and keeps the preimage.
+The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. The initiator supplies their own `hashlock` and keeps the preimage until it claims: `build_claim` passes the preimage to the API, which needs it to build the claim transaction.
 
 Amounts in the hosted tools are **base-unit integer strings**, as in the REST API.
 
@@ -116,7 +116,7 @@ The MCP server runs on your machine and sends your fund, claim and refund transa
 | `HASHLOCK_TRON_HOST` | TRON node | TronGrid, the public TRON node service |
 | `HASHLOCK_TRON_API_KEY` | TronGrid API key | none — TronGrid limits requests without one |
 
-The swap secret is generated locally and stored at `HASHLOCK_SECRETS_PATH` (default `~/.hashlock/mcp-secrets.json`, mode `0600`). Only its hashlock leaves the machine.
+The swap secret is generated locally and stored at `HASHLOCK_SECRETS_PATH` (default `~/.hashlock/mcp-secrets.json`, mode `0600`). Only its hashlock leaves the machine until you claim. Then the MCP server sends the secret to the API — to build the claim on Solana, and on every chain to report the claim so the other leg settles — as the claim puts it on chain.
 
 Local amounts are **human decimal strings** (`"0.5"`), and prices are the **total** quote-asset amount, not per unit.
 
