@@ -55,6 +55,21 @@ Examples:
 
 Timelocks are fixed when the swap is created and are absolute times. `GET /v1/swaps/{id}` shows them per leg.
 
+## Claiming after the reveal
+
+Once the initiator claims the short leg, the secret is public, and the counterparty must claim the long leg **before the long leg's timelock**. After it, the initiator can refund the long leg and would hold both. With the defaults, the long leg's timelock is at least 2 hours after the short leg's (20 hours when the long leg is Bitcoin), so that is how long the counterparty has at the least, even when the initiator claims at the last moment of the short leg.
+
+On EVM, TRON and Solana, Hashlock's keeper tries to claim the long leg for the counterparty as soon as it sees the secret. That is a convenience, not a guarantee: if the long leg is still unclaimed as its timelock nears, claim it yourself with the claim builder. A Bitcoin claim needs the receiver's own signature, so the receiver claims it.
+
+### Sequencer outages on Base and Robinhood Chain
+
+Base and Robinhood Chain are L2s: one sequencer orders their transactions. While it is down, transactions on that chain are delayed, claims included, and the outage comes out of the claim window, because timelocks are absolute.
+
+- **Base** allows forced inclusion of a transaction through Ethereum L1, but it can take up to about 12 hours.
+- **Robinhood Chain** offers no forced inclusion that fits inside a claim window.
+
+An outage longer than the time left before a leg's timelock can make its claim late. The contract refuses a claim after the timelock, and the funder can then refund that leg. The keeper retries a failed claim for at least 10 minutes and then gives up unless something re-triggers it, so after a longer outage the counterparty should send the claim itself once the chain accepts transactions again. Timelocks on Base and Robinhood Chain are the same as on Ethereum; size deals with a leg on either with that in mind.
+
 <Note>
 On Bitcoin, a refund's timelock is measured against the chain's **median time past**, which trails real time. A refund built just after the timelock may be rejected by nodes as non-final; the refund builder says so and tells you how far behind the chain clock is.
 </Note>
