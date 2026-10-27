@@ -59,6 +59,13 @@
           "symbol": {
             "type": "string"
           },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "full name, e.g. 'USD Coin' — display only; null for listed (unverified) tokens"
+          },
           "address": {
             "type": [
               "string",
@@ -962,10 +969,57 @@
     },
     "/v1/assets": {
       "get": {
-        "summary": "Enabled asset registry",
+        "summary": "Enabled asset registry — the whole list, or a search",
+        "description": "Without `q`, `limit` or `offset`: every enabled asset. Any of those turns on search, where `chain` and `verified` also apply: an exact symbol first, then verified, then alphabetical, paged by `nextOffset`.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "a symbol prefix (case-insensitive) or a full contract address",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "chain",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "verified",
+            "in": "query",
+            "description": "`1` or `true`: verified (curated) assets only",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "page size, 1–200 (default 50)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "`nextOffset` from the previous page",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "ok",
+            "description": "ok — `nextOffset` appears only in search mode (null on the last page)",
             "content": {
               "application/json": {
                 "schema": {
@@ -976,8 +1030,22 @@
                       "items": {
                         "$ref": "#/components/schemas/Asset"
                       }
+                    },
+                    "nextOffset": {
+                      "type": "integer",
+                      "nullable": true
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1159,6 +1227,52 @@
             }
           },
           {
+            "name": "assetId",
+            "in": "query",
+            "description": "this asset on either side",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "chain",
+            "in": "query",
+            "description": "either leg on this chain, e.g. `bitcoin`, `base`",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "verified",
+            "in": "query",
+            "description": "`1` or `true`: both tokens verified (no listed tokens). Any other value, or none, applies no filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "a symbol prefix (case-insensitive) or a full contract address, on either token",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "`new` (default): newest first. `expiring`: soonest to expire first. Keep it the same while paging (a cursor from the other sort is a 400). An order reopened while you page can move within the `expiring` order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "expiring"
+              ]
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "description": "page size, 1–100 (default 20)",
@@ -1172,7 +1286,7 @@
           {
             "name": "cursor",
             "in": "query",
-            "description": "nextCursor from the previous page",
+            "description": "nextCursor from the previous page, unchanged. One that does not decode is a 400 (\"invalid cursor\"), not page 1 again.",
             "schema": {
               "type": "string"
             }
@@ -1289,7 +1403,7 @@
           {
             "name": "cursor",
             "in": "query",
-            "description": "nextCursor from the previous page",
+            "description": "nextCursor from the previous page, unchanged. One that does not decode is a 400 (\"invalid cursor\"), not page 1 again.",
             "schema": {
               "type": "string"
             }
@@ -1536,7 +1650,7 @@
           {
             "name": "cursor",
             "in": "query",
-            "description": "nextCursor from the previous page",
+            "description": "nextCursor from the previous page, unchanged. One that does not decode is a 400 (\"invalid cursor\"), not page 1 again.",
             "schema": {
               "type": "string"
             }
@@ -1884,6 +1998,7 @@
     "/v1/threads/{id}/propose": {
       "post": {
         "summary": "Propose a new price on a thread",
+        "description": "Proposing a price is agreeing to it: when the counterparty takes it with accept: true (POST /v1/threads/{id}/accept-proposal) the deal is agreed in that step. The initiator agrees only with its hashlock, so it passes it here; an initiator's proposal without one leaves it to accept after the take.",
         "parameters": [
           {
             "name": "id",
@@ -1907,6 +2022,10 @@
                   "quoteAmount": {
                     "type": "string",
                     "description": "base units"
+                  },
+                  "hashlock": {
+                    "type": "string",
+                    "description": "32-byte hex sha256(secret) — the initiator's; ignored from the other side"
                   }
                 }
               },
@@ -1944,7 +2063,7 @@
     "/v1/threads/{id}/accept-proposal": {
       "post": {
         "summary": "Accept the counterparty's pending price",
-        "description": "Name the price you are accepting: it is refused if a newer counter has replaced it since you read the thread.",
+        "description": "Name the price you are accepting: it is refused if a newer counter has replaced it since you read the thread. With `accept: true` it also accepts the deal at that price in the same transaction — COMMITS, like POST /v1/threads/{id}/accept — and, since proposing a price is agreeing to it, that agrees the deal (unless the proposer is the initiator and proposed without its hashlock — then its accept is left); the initiator taking a counter passes its hashlock here (a hashlock without accept: true is refused). Without accept, the taker's accept is left afterwards (and the proposer's too, when it is the initiator and proposed without its hashlock).",
         "parameters": [
           {
             "name": "id",
@@ -1968,18 +2087,28 @@
                   "quoteAmount": {
                     "type": "string",
                     "description": "the pending price, base units — must equal the thread's pendingAmount"
+                  },
+                  "accept": {
+                    "type": "boolean",
+                    "description": "also accept the deal at this price (one transaction)"
+                  },
+                  "hashlock": {
+                    "type": "string",
+                    "description": "32-byte hex sha256(secret); required from the initiator with accept: true"
                   }
                 }
               },
               "example": {
-                "quoteAmount": "<the pending price, base units — GET /v1/threads/{id}>"
+                "quoteAmount": "<the pending price, base units — GET /v1/threads/{id}>",
+                "accept": true,
+                "hashlock": "<sha256(secret) hex — the initiator only>"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "ok",
+            "description": "ok — { thread }, or with accept: true { thread, swap? }",
             "content": {
               "application/json": {
                 "schema": {
