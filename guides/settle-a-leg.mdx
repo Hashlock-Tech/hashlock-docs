@@ -79,7 +79,9 @@ The claim gate exists because claiming publishes the secret. Publishing it befor
 
 ## Idempotency and timeouts
 
-Send an `Idempotency-Key` header on the builders and on broadcast. The first call runs; a retry with the same key and body replays the stored response with `Idempotency-Replayed: true`.
+The **builders** (fund, claim, refund) change nothing on the server, so they run on every call and nothing of theirs is remembered — retry them freely, with or without an `Idempotency-Key`.
+
+Send an `Idempotency-Key` header on **broadcast**. The first call runs; a retry with the same key and body replays the stored response with `Idempotency-Replayed: true`.
 
 A **`504`** is different, and is **not** remembered by the idempotency key, so a retry with the same key really retries:
 

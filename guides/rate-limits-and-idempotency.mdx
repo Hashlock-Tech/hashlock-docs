@@ -47,6 +47,8 @@ curl -s -X POST $HL/v1/rfqs -H "Authorization: Bearer $HK" \
 
 Keys are scoped to your account, the HTTP method and the path. Any other status is stored and replayed, including a `400` and a `500`: fix the request and use a new key.
 
+The settlement **builders** (`POST /v1/swaps/{id}/legs/{leg}/fund`, `/claim`, `/refund`) are the exception: they change nothing on the server, so they run on every call and none of their answers is stored, whatever the key.
+
 `409` is a state to wait out or act on (a leg already funded, a step that must come first, an address still missing), `429` a rate limit and `503` "unavailable right now" — none of them is stored, so the retry they invite can succeed.
 
 ### Why 504 is special
