@@ -13,6 +13,22 @@ There are two ways to run it.
 | Keys | Your wallet signs; the server holds none | Your keys in env vars, on your machine |
 | Settlement | Returns **unsigned** transactions you sign | Can sign and settle **autonomously** |
 | Secret | You generate and keep the preimage | Generated and stored locally |
+| Amounts | **Base units**, integer strings (`"5000000"` = 0.05 BTC) | **Human decimals** (`"0.05"`) |
+| Assets | Asset ids from `list_assets` | `SYMBOL@chain` (`"BTC@bitcoin"`) or an asset id |
+
+The same order — sell 0.05 BTC for USDT on Ethereum — in each:
+
+```jsonc
+// Hosted: create_rfq
+{ "direction": "sell_base", "baseAssetId": "<BTC asset id>", "baseAmount": "5000000",
+  "quoteAssetId": "<USDT asset id>", "ttlSeconds": 900 }
+
+// Local: create_rfq
+{ "direction": "sell_base", "base_asset": "BTC@bitcoin", "base_amount": "0.05",
+  "quote_asset": "USDT@ethereum" }
+```
+
+Base units are the asset's smallest unit: `decimals` from `list_assets` says how many (8 for BTC, 6 for USDT). Sending `"0.05"` to the hosted server is refused; sending `"5000000"` to the local one means five million BTC.
 
 ## Hosted, by URL
 
@@ -42,7 +58,7 @@ Codes are single-use and expire in 60 seconds. Redirect URIs are allowlisted; lo
 
 The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. The initiator supplies their own `hashlock` and keeps the preimage until it claims: `build_claim` passes the preimage to the API, which needs it to build the claim transaction.
 
-Amounts in the hosted tools are **base-unit integer strings**, as in the REST API.
+Amounts in the hosted tools are **base-unit integer strings**, as in the REST API — prices included (`quoteAmount` is the total quote-asset amount in base units).
 
 ### Hosted tools
 
