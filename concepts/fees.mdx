@@ -6,7 +6,8 @@ description: "Who pays the protocol fee, when you see it, and what the networks 
 ## The protocol fee
 
 - **The taker pays it** — whoever created the request, public or private. The maker never pays it.
-- **It is a small percentage of what you give**, in the same asset, and comes **on top** of it. Selling 1 BTC means sending 1 BTC plus the fee; the protocol fee never comes out of the other side's 1 BTC.
+- **It is 8 bps (0.08%) of what you give**, in the same asset, and comes **on top** of it. Selling 1 BTC means sending 1 BTC plus 0.0008 BTC; the protocol fee never comes out of the other side's 1 BTC.
+- **The live rate governs.** `GET https://hashlock.markets/api/config` returns it as `fee.bps` (`{ "bps": 8, "payer": "taker" }`). Each swap records the rate it was agreed at, so a later change does not touch a deal already agreed.
 - **You see it before you commit.** The order form shows it before you post, and the deal page shows the exact amount before you fund.
 
 ## When the amount is known
