@@ -58,7 +58,7 @@ Codes are single-use and expire in 60 seconds. Redirect URIs are allowlisted; lo
 
 The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. The initiator supplies their own `hashlock` and keeps the preimage until it claims: `build_claim` passes the preimage to the API, which needs it to build the claim transaction.
 
-Amounts in the hosted tools are **base-unit integer strings**, as in the REST API — prices included (`quoteAmount` is the total quote-asset amount in base units).
+Amounts in the hosted tools are **base-unit integer strings**, as in the REST API — prices included (`quoteAmount` is the total quote-asset amount in base units). A price (`askAmount`, `quoteAmount`) has at most 8 decimals of its asset, fewer when the asset has fewer; the API refuses more with "a price has at most N decimals" (N is 8, or the asset's own count when it has fewer), so round a computed price down.
 
 ### Hosted tools
 

@@ -5,7 +5,7 @@ description: "From an API key to a settled swap over the /v1 REST API."
 
 This walks one swap end to end over REST. The server builds unsigned transactions; **you sign every transaction yourself**. The server never signs anything that moves your funds.
 
-All amounts are **base-unit integer strings** (satoshis, wei, token base units).
+All amounts are **base-unit integer strings** (satoshis, wei, token base units). A price (`askAmount`, `quoteAmount`) has at most 8 decimals of its asset, fewer when the asset has fewer; the API refuses more with "a price has at most N decimals" (N is 8, or the asset's own count when it has fewer), so round a computed price down.
 
 ```bash
 export HL=https://api.hashlock.markets

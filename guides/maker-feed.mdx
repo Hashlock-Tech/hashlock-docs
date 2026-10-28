@@ -52,7 +52,7 @@ An RFQ also leaves the book when it **expires** or is **agreed** with another ma
 
 ## Quoting
 
-Send the quote down the same socket. No HTTP round-trip, no second authentication. `quoteAmount` is in base units.
+Send the quote down the same socket. No HTTP round-trip, no second authentication. `quoteAmount` is in base units, with at most 8 decimals of its asset (fewer when the asset has fewer) — round a computed price down, or it is refused with "a price has at most N decimals" (N is 8, or the asset's own count when it has fewer).
 
 ```json
 { "quote": { "rfqId": "…", "quoteAmount": "1500000000", "idempotencyKey": "q-123" } }
