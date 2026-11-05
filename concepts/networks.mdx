@@ -25,12 +25,14 @@ Which tokens trade on each chain is not fixed: list them with `GET /v1/assets` (
 
 | Chain | Contract | Address |
 |---|---|---|
-| Ethereum | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
-| Base | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
-| Robinhood Chain | `HTLCFactory` | `0xa9B6a64837259034E949787B5d17Bfa46304ff71` |
-| TRON | `SharedHTLC` | `TE97fe1beR5nRZzjixi4azE36qWcHEWmNj` |
-| Solana | HTLC program | `7Egsecq7YU5n7PonndM7W7W92EFLZVGrnoaNPW8n1DEc` |
+| Ethereum | `HTLCFactory` | `0x0B43C409B89515e279F651883837d4eB4ead3f4D` |
+| Base | `HTLCFactory` | `0x0B43C409B89515e279F651883837d4eB4ead3f4D` |
+| Robinhood Chain | `HTLCFactory` | `0x0B43C409B89515e279F651883837d4eB4ead3f4D` |
+| TRON | `SharedHTLC` | `TTngcUqouXmEXfjHvdqHmiFcbNBm7gezu8` |
+| Solana | HTLC program | `721JrU7NUvaRBSz3JGyuJQMZMgKrT28aonEGxzngMemf` |
 | Bitcoin | — | no contract: each leg is its own P2WSH script address |
+
+These are the contracts after the third audit round, verified on each chain's explorer; the Solana program's build is verified by OtterSec ([source](https://github.com/Hashlock-Tech/hashlock-solana-program)). Deals funded before the switch keep settling through the previous contracts, which stay in service for them: `HTLCFactory` `0xa9B6a64837259034E949787B5d17Bfa46304ff71`, `SharedHTLC` `TE97fe1beR5nRZzjixi4azE36qWcHEWmNj`, and the Solana program `7Egsecq7YU5n7PonndM7W7W92EFLZVGrnoaNPW8n1DEc`.
 
 - On EVM chains the factory deploys one escrow clone per leg at a deterministic address, so you can check the exact escrow before funding. The settlement builders return the address; you never pass a contract address yourself.
 - On TRON one pool contract holds every escrow; on Solana each escrow is a PDA of the program.
