@@ -5,7 +5,7 @@ description: "How tokens beyond the curated set get on Hashlock Markets: launchp
 
 Hashlock Markets trades two kinds of assets:
 
-- **Curated** — native coins and the stablecoins Hashlock runs itself (`verified: true` in [`GET /v1/assets`](/api-reference/introduction)).
+- **Curated** — tokens Hashlock adds itself: native coins, stablecoins and major tokens such as WETH, cbBTC or wstETH (`verified: true` in [`GET /v1/assets`](/api-reference/introduction)).
 - **Listed** — tokens that passed automated safety and traction checks (`verified: false`, `source` says how). Every app marks them **listed** next to their contract address. A symbol anyone can copy is not an identity: check the address before you trade.
 
 A listed token settles exactly like a curated one, through the same HTLC escrow.
