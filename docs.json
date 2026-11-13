@@ -90,6 +90,7 @@
               "concepts/how-it-works",
               "concepts/htlc-and-timelocks",
               "concepts/roles",
+              "concepts/account-visibility",
               "concepts/networks",
               "concepts/settlement-by-chain",
               "concepts/fees",

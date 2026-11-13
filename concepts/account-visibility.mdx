@@ -1,0 +1,94 @@
+---
+title: "Account visibility"
+description: "Anonymous or public: what the accounts you trade with see of you, and how to change it."
+---
+
+Every account trades in one of two ways: **anonymous** or **public**. A new account is anonymous.
+
+Visibility decides what the other side of a quote or a deal is shown about you. It changes nothing about how a swap is negotiated or settled.
+
+## What the other side sees
+
+| | Anonymous | Public |
+|---|---|---|
+| **Name** | None. The app shows "Anonymous" or your role in the deal. | Your username. |
+| **Track record** | None. | Your record over all your swaps, beside the name. |
+| **Telegram notices to the other side** | Where a notice names you: a role word, such as "The counterparty". | Where a notice names you: your username. |
+| **Picture** | The one you chose, else a plain mark. | The one you chose, else one drawn for your account. |
+
+A public account needs a username. An account with no username is always anonymous.
+
+## Who sees it
+
+Only the accounts you negotiate with:
+
+- a **taker** sees each maker on that maker's quote;
+- a **maker** sees the taker once its quote has opened a thread;
+- both keep seeing each other through the deal.
+
+The RFQ board never says who posted a request. There is no profile page and no search by username.
+
+Over the API, the other party is described on the thread, in `counterpartyName`, `counterpartyStats` and `counterpartyPicture` (`GET /v1/threads/{id}`, `GET /v1/rfqs/{id}/threads`). The name and the record are `null` for an anonymous account. The record is also `null` when it could not be read.
+
+## The track record
+
+The record is counted from the swaps an account was in, as maker or as taker:
+
+| Field | Meaning |
+|---|---|
+| `swaps` | Every swap the account was in. `0` means a new account. |
+| `deals` | Swaps that settled. |
+| `walkedAway` | Swaps where a move of theirs was not made in time: naming where they are paid, funding their leg, or revealing the secret. |
+| `fundSeconds`, `revealSeconds` | Median time from their turn to their transaction reaching the chain. `null` until there are enough samples. |
+| `since` | The month the account was created. |
+
+Going public shows the record of **all** your swaps, including the ones made while you were anonymous. Exact definitions are on the `Thread` schema in the [API reference](/api-reference/introduction).
+
+## What anonymous does not hide
+
+Anonymous hides your name and your record. It is not a way to be untraceable to a counterparty:
+
+- **Your account id.** A thread and a swap carry `makerId` and `takerId` for their two parties, and each chat message its `senderId`. A counterparty that meets you twice can see it is the same account — a maker that quotes two of your requests, for example. Going anonymous later does not change the id.
+- **A username you keep.** An anonymous account's username stays taken, so anyone who tries to take it learns that it exists. To free it, clear it (`"handle": null`).
+- **Your addresses.** The other side of a swap sees your settlement addresses, and the swap's transactions are public on each chain.
+- **Your picture.** A picture you chose is shown on every deal, anonymous or not.
+
+## Username rules
+
+- 3 to 24 characters: the letters `a` to `z`, digits and `_`.
+- Stored in lowercase. A leading `@` is dropped.
+- Unique across accounts. A few names are reserved.
+- A username can be set ten times an hour per account, and an attempt refused because the name is taken counts too. After that the answer is `429`. Clearing it and switching visibility are not counted.
+
+## Change it
+
+In the app: **Account › Profile › How you trade**.
+
+Over the API, with a key that holds the `taker` or `maker` scope (`HL` and `HK` as in the [quickstart](/quickstart)):
+
+```bash
+curl -s -X PATCH $HL/v1/me/profile \
+  -H "Authorization: Bearer $HK" -H "content-type: application/json" \
+  -d '{ "handle": "my_desk", "handlePublic": true }'
+```
+
+```json
+{ "handle": "my_desk", "handlePublic": true }
+```
+
+Send either field or both:
+
+| Body | Effect |
+|---|---|
+| `{ "handle": "my_desk" }` | Sets or changes the username. Visibility stays as it was. |
+| `{ "handlePublic": true }` | Goes public. Refused with `400` while the account has no username. |
+| `{ "handlePublic": false }` | Goes anonymous. The username stays yours. |
+| `{ "handle": null }` | Removes the username and goes anonymous. The name becomes free for another account. |
+
+A username another account holds is refused with `409`. `GET /v1/me` returns the current `handle` and `handlePublic`.
+
+A change applies to every thread you are in, open and past: the other side reads your name as it is now, not as it was when the deal was made.
+
+<Note>
+The picture is chosen in the app only (**Account › Profile**). There is no `/v1` endpoint for it.
+</Note>

@@ -48,6 +48,7 @@ What to know:
 - The key belongs to the account that wallet **signs in to**, created on first use. The minting wallet is that account's login wallet.
 - A wallet-only account holds **one** live key. Minting again **replaces** it. That is how the agent renews after 90 days, and how it recovers a lost or leaked key.
 - Keys expire after 90 days. Mint a new one before `expiresAt`.
+- The account is **anonymous** until it sets a username and goes public — `PATCH /v1/me/profile`. See [Account visibility](/concepts/account-visibility).
 
 ## 2. Use the key
 
