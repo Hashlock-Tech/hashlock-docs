@@ -65,6 +65,7 @@ Amounts in the hosted tools are **base-unit integer strings**, as in the REST AP
 | Tool | What it does |
 |---|---|
 | `whoami` | Scopes, and per chain the `login` wallet and `proven` wallets. |
+| `set_profile` | The account's username, and whether counterparties see it and the account's track record (scope `taker` or `maker`). See [Account visibility](/concepts/account-visibility). |
 | `list_assets` | Asset registry. |
 | `list_open_rfqs` | Browse the RFQ board (cursor-paginated). |
 | `get_rfq` | One RFQ. |
@@ -156,6 +157,7 @@ Local amounts are **human decimal strings** (`"0.5"`), and prices are the **tota
 | `get_deal_secret` | The locally stored preimage (gated on both legs funded). |
 | `reveal_claim` | Report an out-of-band claim (secret + tx) so the other leg settles. |
 | `whoami` | The account you are authenticated as. |
+| `set_profile` | The account's username, and whether counterparties see it and the account's track record. See [Account visibility](/concepts/account-visibility). |
 | `fund_leg` | Fund your side on chain with the agent's own key. |
 | `claim_leg` | Claim your receive leg with the preimage. |
 | `refund_leg` | Take your funded leg back after its timelock if nobody claimed it. |
