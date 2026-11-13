@@ -3,7 +3,7 @@
   "info": {
     "title": "Hashlock Markets API",
     "version": "1.0.0",
-    "description": "Guides, concepts and a quickstart: https://docs.hashlock.markets\n\nNon-custodial cross-chain atomic swaps (BTC ↔ EVM / TRON / Solana) via sealed RFQ + HTLC. Makers and takers share these endpoints. Authenticate with an API key: `Authorization: Bearer hk_...`.\n\n**Wallets first.** An order that GIVES an asset requires a proven wallet on that asset's chain, and your key starts with only the address its account signed in with. `GET /v1/me` lists both what each chain's `login` address is and what you have `proven`; `POST /v1/wallets/{evm|tron|solana|bitcoin}` proves another by signature — Bitcoin included, on a BIP-322 one. A proof adds trading reach and nothing else: it never becomes the account's payout identity, which only a wallet session can change — so a key alone cannot redirect anyone's money. The message you sign for it must say `link this wallet` and carry a nonce from `GET /v1/wallets/nonce`; that nonce is not a login nonce, so the signature you collect is not a session for that wallet's account.\n\n**Rate limits.** Every response carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds). Over the limit returns `429` with `Retry-After`.\n\n**Idempotency.** Send an `Idempotency-Key` header on any POST to make retries safe: the operation runs once and the same response is replayed (with `Idempotency-Replayed: true`). Reusing a key with a different body returns `422`. Keys are remembered for 24h — except a `504`, which is a read of ours running out of time: on the builders nothing happened, and on `/tx/broadcast` we cannot tell — so either way a retry with the same key really retries. The fund, claim and refund builders change nothing on the server, so they run on every call and nothing of theirs is remembered — retry them freely.\n\n**Custody-agnostic settlement.** The fund/claim/refund endpoints return UNSIGNED transactions; you sign with your own key/HSM and submit via `/v1/tx/broadcast`. The server never holds your keys.\n\n---\n\n## Maker feed (WebSocket)\n\nPolling `GET /v1/rfqs` will not win you flow. `wss://<host>/v1/ws` — the host you selected above — streams every request-for-quote you are eligible for, and takes your quotes back over the same socket.\n\n**Handshake.** Connect, then send your key as the first frame. Nothing else is accepted until you do:\n\n```json\n{ \"apiKey\": \"hk_live_...\" }\n```\n\nThe key needs the `maker` scope (`GET /v1/me` shows what yours has). You get a snapshot, then a readiness marker:\n\n```json\n{ \"type\": \"snapshot\", \"rfqs\": [ ... ] }\n{ \"type\": \"ready\" }\n```\n\nThe snapshot is the **public** book only, and at most **100** entries, newest first. If you need more than that, page `GET /v1/rfqs?cursor=…` after connecting. An RFQ created while the snapshot was being built may appear both in it and in the stream that follows — frames carry the rfq id, so key on it and the duplicate is a no-op.\n\n**The stream.** Two kinds, and only two:\n\n```json\n{ \"type\": \"rfq\", \"kind\": \"created\",   \"rfq\": { ... } }\n{ \"type\": \"rfq\", \"kind\": \"cancelled\", \"rfq\": { ... } }\n```\n\n`cancelled` means the order left the book, not always that its owner cancelled it: when a listed token **closes** (it no longer passes the listing checks), every public order on it is sent as `cancelled` while its status is unchanged (`open` or `negotiating`); if the token **reopens**, the same orders come back as `created` with their original id and `createdAt`. Treat both as upserts keyed on the id.\n\nAn RFQ also leaves the book when it **expires** or is **agreed** with another maker, and neither emits a frame. A book you maintain purely from the stream therefore drifts: it keeps orders nobody can take any more, and quoting into one is rejected. Reconcile with a fresh `snapshot` (reconnect) or check `GET /v1/rfqs/{id}` before committing to a price.\n\n**What reaches you.** Public RFQs, plus private ones addressed to an address on your account. Matching follows each encoding: EVM hex and bech32 (`bc1…`/`tb1…`) compare case-insensitively, base58check (TRON, legacy Bitcoin) does not — there the case of a character is part of the address. Never your own orders — neither in the snapshot nor in the stream. Note the asymmetry: **private orders arrive only on the live stream.** They are link-only by design, so they are absent from the snapshot and from `GET /v1/rfqs`, and there is no endpoint that lists the ones addressed to you. A private order sent while your socket was down is not recoverable — if you trade private flow, stay connected.\n\n**Quoting.** Send the quote down the same socket; no HTTP round-trip, no second authentication. `quoteAmount` is in base units, as everywhere else in this API:\n\n```json\n{ \"quote\": { \"rfqId\": \"…\", \"quoteAmount\": \"1500000000\" } }\n→ { \"type\": \"quoted\", \"rfqId\": \"…\", \"threadId\": \"…\" }\n```\n\nThe `threadId` is a negotiation thread: `GET /v1/threads/{id}` and the propose/accept endpoints take it from there. `POST /v1/rfqs/{id}/quotes` does the same thing over REST if you prefer.\n\n**Errors** arrive as `{ \"type\": \"error\", \"error\": \"…\" }` and do not close the socket.\n\n**Operating it.** There is no heartbeat and no resume: detect a dead socket yourself and reconnect. The fresh `snapshot` is your recovery for the public book, with the two limits above — 100 entries, and no private orders. Nothing is replayed, so this socket is not a settlement log. For that register a webhook (`POST /v1/webhooks`): the feed tells you what to quote, webhooks tell you what happened to your swaps.\n\n**Webhook signature.** `x-hashlock-signature: sha256=<hex>` is HMAC-SHA256 over `<timestamp>.<body>` with your webhook secret; the timestamp is in `x-hashlock-timestamp`. Verify before trusting a delivery, and reply 2xx.\n\n**Webhook events.** `quote.created`, `swap.agreed`, `swap.funded`, `secret.revealed`, `swap.settled`, `swap.refunded`, `swap.half_settled` (one leg claimed, the other refunded at its timelock) — subscribe to none and you get all of them. `POST /v1/webhooks/{id}/ping` also delivers a `ping` event, so handle an unknown `type` by returning 2xx rather than erroring.\n\n**Webhook delivery is best-effort, not durable.** A non-2xx or a timeout is retried after 15s, 30s, 60s, 120s and 240s — **6 attempts over 7m45s** — and is then dropped; there is no redelivery endpoint and no delivery log beyond `lastStatus` on `GET /v1/webhooks`. If your receiver is down longer than that you will lose events, so reconcile against `GET /v1/swaps/{id}` — that is the authoritative state — rather than treating the webhook as the record."
+    "description": "Guides, concepts and a quickstart: https://docs.hashlock.markets\n\nNon-custodial cross-chain atomic swaps (BTC ↔ EVM / TRON / Solana) via sealed RFQ + HTLC. Makers and takers share these endpoints. Authenticate with an API key: `Authorization: Bearer hk_...`.\n\n**Wallets first.** An order that GIVES an asset requires a proven wallet on that asset's chain, and your key starts with only the address its account signed in with. `GET /v1/me` lists both what each chain's `login` address is and what you have `proven`; `POST /v1/wallets/{evm|tron|solana|bitcoin}` proves another by signature — Bitcoin included, on a BIP-322 one. A proof adds trading reach and nothing else: it never becomes the account's payout identity, which only a wallet session can change — so a key alone cannot redirect anyone's money. The message you sign for it must say `link this wallet` and carry a nonce from `GET /v1/wallets/nonce`; that nonce is not a login nonce, so the signature you collect is not a session for that wallet's account.\n\n**Rate limits.** Every response carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds). Over the limit returns `429` with `Retry-After`.\n\n**Idempotency.** Send an `Idempotency-Key` header on any POST to make retries safe: the operation runs once and the same response is replayed (with `Idempotency-Replayed: true`). Reusing a key with a different body returns `422`. Keys are remembered for 24h — except a `504`, which is a read of ours running out of time: on the builders nothing happened, and on `/tx/broadcast` we cannot tell — so either way a retry with the same key really retries. The fund, claim and refund builders change nothing on the server, so they run on every call and nothing of theirs is remembered — retry them freely.\n\n**Custody-agnostic settlement.** The fund/claim/refund endpoints return UNSIGNED transactions; you sign with your own key/HSM and submit via `/v1/tx/broadcast`. The server never holds your keys.\n\n---\n\n## Maker feed (WebSocket)\n\nPolling `GET /v1/rfqs` will not win you flow. `wss://<host>/v1/ws` — the host you selected above — streams every request-for-quote you are eligible for, and takes your quotes back over the same socket.\n\n**Handshake.** Connect, then send your key as the first frame. Nothing else is accepted until you do:\n\n```json\n{ \"apiKey\": \"hk_live_...\" }\n```\n\nThe key needs the `maker` scope (`GET /v1/me` shows what yours has). You get a snapshot, then a readiness marker:\n\n```json\n{ \"type\": \"snapshot\", \"rfqs\": [ ... ] }\n{ \"type\": \"ready\" }\n```\n\nThe snapshot is the **public** book only, and at most **100** entries, newest first. If you need more than that, page `GET /v1/rfqs?cursor=…` after connecting. An RFQ created while the snapshot was being built may appear both in it and in the stream that follows — frames carry the rfq id, so key on it and the duplicate is a no-op.\n\n**The stream.** Two kinds, and only two:\n\n```json\n{ \"type\": \"rfq\", \"kind\": \"created\",   \"rfq\": { ... } }\n{ \"type\": \"rfq\", \"kind\": \"cancelled\", \"rfq\": { ... } }\n```\n\n`cancelled` means the order left the book, not always that its owner cancelled it: when a listed token **closes** (it no longer passes the listing checks), every public order on it is sent as `cancelled` while its status is unchanged (`open` or `negotiating`); if the token **reopens**, the same orders come back as `created` with their original id and `createdAt`. Treat both as upserts keyed on the id.\n\nAn RFQ also leaves the book when it **expires** or is **agreed** with another maker, and neither emits a frame. A book you maintain purely from the stream therefore drifts: it keeps orders nobody can take any more, and quoting into one is rejected. Reconcile with a fresh `snapshot` (reconnect) or check `GET /v1/rfqs/{id}` before committing to a price.\n\n**What reaches you.** Public RFQs, plus private ones addressed to an address on your account. Matching follows each encoding: EVM hex and bech32 (`bc1…`/`tb1…`) compare case-insensitively, base58check (TRON, legacy Bitcoin) does not — there the case of a character is part of the address. Never your own orders — neither in the snapshot nor in the stream. Note the asymmetry: **private orders arrive only on the live stream.** They are link-only by design, so they are absent from the snapshot and from `GET /v1/rfqs`, and there is no endpoint that lists the ones addressed to you. A private order sent while your socket was down is not recoverable — if you trade private flow, stay connected.\n\n**Quoting.** Send the quote down the same socket; no HTTP round-trip, no second authentication. `quoteAmount` is in base units, as everywhere else in this API, with at most 8 decimals of its asset (fewer when the asset has fewer) — round a computed price down, or it is refused with \"a price has at most N decimals\":\n\n```json\n{ \"quote\": { \"rfqId\": \"…\", \"quoteAmount\": \"1500000000\" } }\n→ { \"type\": \"quoted\", \"rfqId\": \"…\", \"threadId\": \"…\" }\n```\n\nThe `threadId` is a negotiation thread: `GET /v1/threads/{id}` and the propose/accept endpoints take it from there. `POST /v1/rfqs/{id}/quotes` does the same thing over REST if you prefer.\n\n**Errors** arrive as `{ \"type\": \"error\", \"error\": \"…\" }` and do not close the socket.\n\n**Operating it.** There is no heartbeat and no resume: detect a dead socket yourself and reconnect. The fresh `snapshot` is your recovery for the public book, with the two limits above — 100 entries, and no private orders. Nothing is replayed, so this socket is not a settlement log. For that register a webhook (`POST /v1/webhooks`): the feed tells you what to quote, webhooks tell you what happened to your swaps.\n\n**Webhook signature.** `x-hashlock-signature: sha256=<hex>` is HMAC-SHA256 over `<timestamp>.<body>` with your webhook secret; the timestamp is in `x-hashlock-timestamp`. Verify before trusting a delivery, and reply 2xx.\n\n**Webhook events.** `quote.created`, `swap.agreed`, `swap.funded`, `secret.revealed`, `swap.settled`, `swap.refunded`, `swap.half_settled` (one leg claimed, the other refunded at its timelock) — subscribe to none and you get all of them. `POST /v1/webhooks/{id}/ping` also delivers a `ping` event, so handle an unknown `type` by returning 2xx rather than erroring.\n\n**Webhook delivery is best-effort, not durable.** A non-2xx or a timeout is retried after 15s, 30s, 60s, 120s and 240s — **6 attempts over 7m45s** — and is then dropped; there is no redelivery endpoint and no delivery log beyond `lastStatus` on `GET /v1/webhooks`. If your receiver is down longer than that you will lose events, so reconcile against `GET /v1/swaps/{id}` — that is the authoritative state — rather than treating the webhook as the record."
   },
   "servers": [
     {
@@ -86,6 +86,18 @@
           "source": {
             "type": "string",
             "description": "'curated', 'launchpad:<bankr|virtuals|clanker>' or 'api'"
+          },
+          "logoAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "when Hashlock fetched the token's logo, found by its contract address (null = none); the image is served at /api/assets/{id}/logo?v=<this value as epoch milliseconds>, cacheable for good at that URL"
+          },
+          "logoAnimated": {
+            "type": "boolean",
+            "description": "the logo is an animated image"
           }
         }
       },
@@ -163,10 +175,26 @@
             ]
           },
           "askAmount": {
-            "type": "string"
+            "type": "string",
+            "description": "a private order's price, base units, at most 8 decimals (fewer when the asset has fewer)"
           },
           "targetAddress": {
             "type": "string"
+          }
+        }
+      },
+      "FundOutpoint": {
+        "type": "object",
+        "properties": {
+          "txid": {
+            "type": "string"
+          },
+          "vout": {
+            "type": "integer"
+          },
+          "value": {
+            "type": "integer",
+            "description": "sats"
           }
         }
       },
@@ -268,6 +296,13 @@
               "null"
             ]
           },
+          "aClaimTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Bitcoin: where this leg's claim pays (its receiver's wallet unless they named another address)"
+          },
           "aRefundAddress": {
             "type": [
               "string",
@@ -285,6 +320,16 @@
               "string",
               "null"
             ]
+          },
+          "aFundOutpoints": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FundOutpoint"
+            },
+            "description": "Bitcoin: the funding outputs a claim or refund spends"
           },
           "aClaimTx": {
             "type": [
@@ -318,6 +363,13 @@
               "null"
             ]
           },
+          "bClaimTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Bitcoin: where this leg's claim pays (its receiver's wallet unless they named another address)"
+          },
           "bRefundAddress": {
             "type": [
               "string",
@@ -336,6 +388,16 @@
               "null"
             ]
           },
+          "bFundOutpoints": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FundOutpoint"
+            },
+            "description": "Bitcoin: the funding outputs a claim or refund spends"
+          },
           "bClaimTx": {
             "type": [
               "string",
@@ -347,6 +409,180 @@
               "string",
               "null"
             ]
+          },
+          "timeline": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "each party's turns as the settlement engine decided them — fundA (the maker's funding), fundB (the taker's), payoutA / payoutB (naming where leg a / leg b pays: the taker's / the maker's), reveal (the initiator's) — with ISO times, the first of each kept: what a Thread's counterpartyStats is counted from. Null on swaps from before it was recorded; any turn or time may be absent",
+            "properties": {
+              "fundA": {
+                "type": "object",
+                "properties": {
+                  "openedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "doneAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "heldAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "shortAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "unverifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              "fundB": {
+                "type": "object",
+                "properties": {
+                  "openedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "doneAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "heldAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "shortAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "unverifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              "reveal": {
+                "type": "object",
+                "properties": {
+                  "openedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "doneAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "heldAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "shortAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "unverifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              "payoutA": {
+                "type": "object",
+                "properties": {
+                  "openedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "doneAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "heldAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "shortAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "unverifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              "payoutB": {
+                "type": "object",
+                "properties": {
+                  "openedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "doneAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "heldAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "shortAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "unverifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
           },
           "createdAt": {
             "type": "string",
@@ -486,6 +722,81 @@
               "null"
             ],
             "description": "sha256(secret), hex — the initiator's, once it has accepted"
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "the other party's account name, when they show it; null otherwise"
+          },
+          "counterpartyPicture": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "the picture the other party chose, shown whether or not they show a name: { style, seed } — a DiceBear 9 style (glass, thumbs, notionists-neutral, bottts-neutral) drawn from the seed — or { photo } — an id, the image at /api/photos/{photo}. Null when they chose none: the web app then draws glass from their user id for a public account (counterpartyName set) and a plain mark for an anonymous one"
+          },
+          "counterpartyStats": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "the other party's record across all their swaps, as maker or taker — null unless they show a public name (counterpartyName), or when it could not be read. Only what depends on them counts: turns and moves are recorded by the server as they happen, so swaps from before the record existed count toward deals only",
+            "required": [
+              "swaps",
+              "deals",
+              "walkedAway",
+              "fundSeconds",
+              "revealSeconds",
+              "fundSamples",
+              "revealSamples",
+              "since"
+            ],
+            "properties": {
+              "swaps": {
+                "type": "integer",
+                "description": "every swap they were in; 0 = new"
+              },
+              "deals": {
+                "type": "integer",
+                "description": "swaps that settled (both legs paid out)"
+              },
+              "walkedAway": {
+                "type": "integer",
+                "description": "swaps where a move of theirs was never made in the time they had: naming where they are paid, funding their leg, or as the initiator revealing the secret once both legs were funded. One per swap; a turn with under an hour left is not counted"
+              },
+              "fundSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "median seconds from their turn to their funding reaching the chain (block time; Bitcoin: first seen in the mempool), over at least 3; null otherwise"
+              },
+              "revealSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "as the initiator: median seconds from both legs being funded to their claim reaching the chain, over at least 3; null otherwise"
+              },
+              "fundSamples": {
+                "type": "integer",
+                "description": "how many timed fundings fundSeconds is the median of"
+              },
+              "revealSamples": {
+                "type": "integer",
+                "description": "how many timed reveals revealSeconds is the median of"
+              },
+              "since": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "the month their account was made (its first day, UTC)"
+              }
+            }
           },
           "createdAt": {
             "type": "string",
@@ -760,6 +1071,17 @@
                         "type": "string"
                       }
                     },
+                    "handle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "the account name — PATCH /v1/me/profile, or Account › Profile in the app"
+                    },
+                    "handlePublic": {
+                      "type": "boolean",
+                      "description": "whether the other side of a deal sees the name, and the account's record beside it"
+                    },
                     "wallets": {
                       "type": "object",
                       "description": "per chain family: the login address, and the addresses proven by signature",
@@ -859,6 +1181,103 @@
           }
         },
         "operationId": "getMe"
+      }
+    },
+    "/v1/me/profile": {
+      "patch": {
+        "summary": "Set the account name and whether the other side of a deal sees it",
+        "description": "The change the app makes in Account › Profile (\"How you trade\"), for an account that trades through its key alone. Send either field or both. An account is anonymous until `handlePublic` is true. From then on the accounts it negotiates with see its name and, beside the name, its record over all its swaps — those made while it was anonymous included (`counterpartyName` and `counterpartyStats` on a Thread); back to false hides both. A name may be set ten times an hour per account, counted together with changes made in the app; clearing it, re-sending the name the account already has and `handlePublic` are not counted. Needs a key with the `taker` or `maker` scope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "handle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "3 to 24 characters: letters, digits and _ — stored in lowercase, unique across accounts. `null` clears the name, and stops showing it."
+                  },
+                  "handlePublic": {
+                    "type": "boolean",
+                    "description": "whether the other side of a deal sees the name and the record; `true` needs a name — the account's, or `handle` in the same request"
+                  }
+                }
+              },
+              "example": {
+                "handle": "<3 to 24 characters: letters, digits, _>",
+                "handlePublic": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok — the two fields as they now stand",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "handle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "handlePublic": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "not a valid name, a reserved one, `handlePublic: true` on an account with no name, or nothing to change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "the key is read-only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "the name belongs to another account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "too many name changes this hour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchMeProfile"
       }
     },
     "/v1/wallets/nonce": {
@@ -2164,7 +2583,7 @@
                 "properties": {
                   "quoteAmount": {
                     "type": "string",
-                    "description": "base units"
+                    "description": "base units, at most 8 decimals (fewer when the asset has fewer)"
                   }
                 }
               },
@@ -2422,6 +2841,10 @@
                 "properties": {
                   "secret": {
                     "type": "string"
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "bitcoin only: where the spend pays — default: the deal's receive address (claim, when one is set), else your wallet behind the script's key, else that key's P2WPKH. A claim to another address than the deal's receive address is refused (409)."
                   }
                 }
               },
@@ -2510,6 +2933,22 @@
             "description": "bitcoin only: refund an escrow this leg moved OFF (after a pubkey correction) instead of its current one; refused for an address that was never this leg's escrow"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "bitcoin only: where the refund pays — default: the P2WPKH of the script's refund key"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "signing material",
@@ -2553,6 +2992,277 @@
           }
         },
         "operationId": "postSwapsByIdLegsByLegRefund"
+      }
+    },
+    "/v1/swaps/{id}/legs/{leg}/presign": {
+      "get": {
+        "summary": "Bitcoin leg: build its claim (receiver) or refund (funder) to PRE-SIGN, at up to three fee levels",
+        "description": "`kind=claim` (default): only the leg's receiver, once its escrow is recorded. A claim sighash does not cover the witness, so signing it needs no secret: sign every `sighashHexes` entry of each level with the script's receiver key and POST them back. When the secret is revealed the keeper inserts it and broadcasts the level the fee market needs, so the claim is paid while you are offline. `kind=refund`: only the initiator's leg, by its funder, once its escrow is recorded and while the secret is not revealed and the leg not refunded — also after the deal failed; signed with the script's sender key, valid only after the timelock. If the deal cannot complete (the secret never revealed, the other leg refunded), the keeper broadcasts it once the median time past is beyond the timelock — never after a reveal. `to` (optional) is where the spend pays; default: a claim pays the leg's `claimTo` (a Bitcoin address sent to POST /v1/swaps/{id}/address — over /v1 one of this account's proven wallets), else the receiver's own wallet behind the signing key, else that key's P2WPKH address; a refund pays the signing key's own P2WPKH address. A claim `to` other than a set `claimTo` is refused with 409.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leg",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "claim",
+                "refund"
+              ]
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the spend to sign at each fee level",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "claim",
+                        "refund"
+                      ]
+                    },
+                    "toAddress": {
+                      "type": "string"
+                    },
+                    "signerPubkeyHex": {
+                      "type": "string",
+                      "description": "the key that signs this branch"
+                    },
+                    "receiverPubkeyHex": {
+                      "type": "string",
+                      "description": "kind=claim only — the same key as signerPubkeyHex"
+                    },
+                    "inputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "txid": {
+                            "type": "string"
+                          },
+                          "vout": {
+                            "type": "integer"
+                          },
+                          "value": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "levels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "feeSats": {
+                            "type": "integer"
+                          },
+                          "psbtBase64": {
+                            "type": "string"
+                          },
+                          "sighashHexes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "not a Bitcoin leg you receive (claim) or fund as the initiator (refund), the escrow is not recorded yet, (claim) the swap is over, or (refund) the secret is revealed or the leg refunded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "the Bitcoin explorer could not be read — retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getSwapsByIdLegsByLegPresign"
+      },
+      "post": {
+        "summary": "Store the pre-signed Bitcoin claim or refund — body: { kind: \"claim\" | \"refund\", toAddress, levels: [{ feeSats, psbtBase64, signaturesHex }] }",
+        "description": "Each level is verified against the escrow's confirmed outputs and the script's key for that branch: one output to toAddress, one signature per input; a claim by the receiver key with locktime 0, a refund by the sender key with locktime = the leg's timelock and non-final inputs.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leg",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "toAddress",
+                  "levels"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "claim",
+                      "refund"
+                    ]
+                  },
+                  "toAddress": {
+                    "type": "string"
+                  },
+                  "levels": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "feeSats": {
+                          "type": "integer"
+                        },
+                        "psbtBase64": {
+                          "type": "string"
+                        },
+                        "signaturesHex": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "swap": {
+                      "$ref": "#/components/schemas/Swap"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "a level failed verification — the message names the level and the check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "not a Bitcoin leg you receive (claim) or fund as the initiator (refund), the escrow is not recorded yet, (claim) the swap is over, or (refund) the secret is revealed or the leg refunded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "the Bitcoin explorer could not be read — retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postSwapsByIdLegsByLegPresign"
       }
     },
     "/v1/threads/{id}": {
@@ -2644,7 +3354,7 @@
                 "properties": {
                   "quoteAmount": {
                     "type": "string",
-                    "description": "base units"
+                    "description": "base units, at most 8 decimals (fewer when the asset has fewer)"
                   },
                   "hashlock": {
                     "type": "string",
@@ -2900,7 +3610,7 @@
             }
           },
           "409": {
-            "description": "a funding of this leg is on its way — its refund address is fixed until it is recorded or fails",
+            "description": "a funding of this leg is on its way — its refund and receive addresses are fixed until it is recorded or fails",
             "content": {
               "application/json": {
                 "schema": {
@@ -2926,7 +3636,7 @@
     "/v1/swaps/{id}/fund-intent": {
       "post": {
         "summary": "Reserve an EVM leg's funding, then report its broadcast",
-        "description": "Call it WITHOUT txHash before the first transaction of an EVM leg you fund (approve or createSwap): it reserves the leg, and is refused with 409 while another funding of it is live — from any client or wallet. Call it again WITH txHash as soon as your createSwap is broadcast. While the reservation stands, every client shows the leg as on its way and its refund address is fixed. It is released when the escrow is recorded, or when the transaction reverts, mines without this swap's escrow, or is not seen on chain for 30 minutes; a reservation that never names a transaction lapses after 30 minutes. Pass `at` (the reservation's token) when attaching if more than one of your clients may fund. The same txHash again changes nothing.",
+        "description": "Call it WITHOUT txHash before the first transaction of an EVM leg you fund (approve or createSwap): it reserves the leg, and is refused with 409 while another funding of it is live — from any client or wallet. Call it again WITH txHash as soon as your createSwap is broadcast. While the reservation stands, every client shows the leg as on its way, and its refund address and the counterparty's receive (payout) address on it are fixed. It is released when the escrow is recorded, or when the transaction reverts, mines without this swap's escrow, or is not seen on chain for 30 minutes; a reservation that never names a transaction lapses after 30 minutes. Pass `at` (the reservation's token) when attaching if more than one of your clients may fund. The same txHash again changes nothing.",
         "parameters": [
           {
             "name": "id",

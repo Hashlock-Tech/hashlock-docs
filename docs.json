@@ -131,6 +131,7 @@
             "openapi": "/api-reference/openapi.json",
             "pages": [
               "GET /v1/me",
+              "PATCH /v1/me/profile",
               "GET /v1/keys/nonce",
               "POST /v1/keys"
             ]
@@ -182,6 +183,8 @@
               "POST /v1/swaps/{id}/fund-intent",
               "DELETE /v1/swaps/{id}/fund-intent/{leg}",
               "POST /v1/swaps/{id}/legs/{leg}/fund",
+              "GET /v1/swaps/{id}/legs/{leg}/presign",
+              "POST /v1/swaps/{id}/legs/{leg}/presign",
               "POST /v1/swaps/{id}/legs/{leg}/claim",
               "POST /v1/swaps/{id}/legs/{leg}/refund",
               "POST /v1/tx/broadcast"
