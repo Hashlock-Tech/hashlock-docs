@@ -231,6 +231,10 @@
           "threadId": {
             "type": "string"
           },
+          "dealUrl": {
+            "type": "string",
+            "description": "the deal's page on hashlock.markets — negotiation through settlement. A person signs there what an assistant without their wallet cannot: the initiator's acceptance (its secret is made and kept in the browser), funding and claiming. Present on every thread and swap a /v1 route answers"
+          },
           "status": {
             "type": "string"
           },
@@ -671,6 +675,10 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "dealUrl": {
+            "type": "string",
+            "description": "the deal's page on hashlock.markets — negotiation through settlement. A person signs there what an assistant without their wallet cannot: the initiator's acceptance (its secret is made and kept in the browser), funding and claiming. Present on every thread and swap a /v1 route answers"
           },
           "rfqId": {
             "type": "string"

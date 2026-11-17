@@ -111,6 +111,7 @@
           {
             "group": "AI agents",
             "pages": [
+              "agents/connect-your-assistant",
               "agents/mcp",
               "agents/agents-without-a-human",
               "agents/agent-skill"

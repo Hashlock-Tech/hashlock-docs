@@ -1,0 +1,66 @@
+---
+title: "Connect your AI assistant"
+description: "Use Hashlock Markets from Claude, ChatGPT, Codex, Cursor, VS Code, Gemini, Hermes or OpenClaw: negotiate in chat, sign on the deal page."
+---
+
+Connect Hashlock Markets to the assistant you already use. In the chat, the assistant finds assets, posts your
+requests, reads the quotes you receive and negotiates for you. Anything that moves money — accepting as the
+initiator, funding, claiming, refunding — happens on the deal page with your own wallet; the assistant gives you
+the link.
+
+Every client below connects to the same hosted server and signs you in with OAuth:
+
+```text
+https://hashlock.markets/mcp
+```
+
+## Add it to your client
+
+| Client | How |
+|---|---|
+| Claude (claude.ai, Desktop) | Settings → Connectors → **Add custom connector** → paste the URL |
+| Claude Code | `/plugin marketplace add Hashlock-Tech/hashlock-mcp`, then `/plugin install hashlock-markets@hashlock` |
+| ChatGPT | [chatgpt.com/plugins](https://chatgpt.com/plugins) → **+** → **Add custom MCP server** → paste the URL (write actions need a plan that allows custom MCP servers to write — Business or Enterprise) |
+| Codex | `codex plugin marketplace add Hashlock-Tech/hashlock-mcp`, then `codex plugin add hashlock-markets@hashlock` |
+| Cursor | In `.cursor/mcp.json`: `{"mcpServers": {"hashlock": {"url": "https://hashlock.markets/mcp"}}}` |
+| VS Code / Copilot | `code --add-mcp '{"name":"hashlock","type":"http","url":"https://hashlock.markets/mcp"}'` |
+| Gemini CLI | `gemini extensions install https://github.com/Hashlock-Tech/hashlock-mcp` |
+| Hermes Agent | `hermes skills tap add Hashlock-Tech/hashlock-mcp`, `hermes skills install Hashlock-Tech/hashlock-mcp/hashlock-markets`; add `hashlock: { url: "https://hashlock.markets/mcp", auth: oauth }` under `mcp_servers` in `~/.hermes/config.yaml`, then `hermes mcp login hashlock` |
+| OpenClaw | `openclaw mcp set hashlock '{"url":"https://hashlock.markets/mcp","transport":"streamable-http","auth":"oauth"}'`, then `openclaw mcp login hashlock`; the skill: `openclaw plugins install git:github.com/Hashlock-Tech/hashlock-mcp` |
+
+The plugin installs (Claude Code, Codex, Gemini CLI, Hermes, OpenClaw) also bring the
+[Hashlock agent skill](/agents/agent-skill), which teaches the assistant how a deal works.
+
+## Sign in
+
+The first time the assistant calls Hashlock, your client opens a Hashlock page. Sign in and approve with a
+signature from your wallet; the client receives its own key, listed under
+[Developers](https://hashlock.markets/developers), where you can revoke it at any time. The key expires after
+90 days.
+
+## What happens in the chat, and what happens on the page
+
+| In the chat | On the deal page |
+|---|---|
+| Find assets and what is open on the board | Accept a deal when you are the **initiator** — your browser makes and keeps the swap secret |
+| Post a request for quote | Fund your side |
+| Read the quotes you receive, counter, accept when you are not the initiator | Claim what you receive |
+| Follow a deal's status | Refund after the timelock, if the deal did not complete |
+
+Every quote and deal the assistant shows you carries its page, `dealUrl`. Open it signed in **the same
+way you connected the assistant**, and finish the deal in the browser where you accepted it: the secret lives
+there.
+
+<Warning>
+Quoting, countering and accepting bind you to that price. A good assistant asks before it does any of them; tell
+it plainly when you want it to.
+</Warning>
+
+The assistant never holds your keys or your secret, and Hashlock never holds your funds: each side locks its
+asset in its own escrow, and either both are paid or both are refunded. See
+[Non-custodial](/concepts/non-custodial).
+
+## Agents with their own wallet
+
+An autonomous agent that signs with its own keys settles the whole deal itself, without a deal page. See
+[MCP server](/agents/mcp) and [Agents without a human](/agents/agents-without-a-human).
