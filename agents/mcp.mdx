@@ -41,6 +41,11 @@ Add this URL to your MCP client (Claude, ChatGPT, or any client with Streamable 
 - Approving takes a **signature from your wallet**. A signed-in session alone grants nothing.
 - The grant appears under [Developers](https://hashlock.markets/developers) as an ordinary API key. It expires after 90 days, you are told in Telegram (when linked) whenever one is created, and you can revoke it there.
 - Clients that do not speak OAuth can send a key they created themselves: `Authorization: Bearer hk_…`.
+- **What you get depends on the key.** A client connected through OAuth is taken to be a chat assistant acting
+  for a person, with no wallet of its own. It gets every tool except `build_fund`, `build_claim`, `build_refund`
+  and `broadcast_tx`, and its price tools take no `hashlock`: the person accepts as initiator, funds, claims and
+  refunds on the deal page (`dealUrl`). A key you created yourself, for an agent that signs with its own keys,
+  gets every tool.
 
 <Accordion title="How the OAuth flow works">
 Standard OAuth 2.1, so a compliant client drives it unattended.
@@ -56,11 +61,13 @@ Standard OAuth 2.1, so a compliant client drives it unattended.
 Codes are single-use and expire in 60 seconds. Redirect URIs are allowlisted; loopback is permitted per RFC 8252. The issued token **is** the API key, so a grant is revocable from the same list as every other key.
 </Accordion>
 
-The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. The initiator supplies their own `hashlock` and keeps the preimage until it claims: `build_claim` passes the preimage to the API, which needs it to build the claim transaction.
+The hosted server is multi-tenant and strictly non-custodial: there is no key-in-env signing and no server-side secret storage. With a key you created yourself, the initiator supplies its own `hashlock` and keeps the preimage until it claims: `build_claim` passes the preimage to the API, which needs it to build the claim transaction.
 
 Amounts in the hosted tools are **base-unit integer strings**, as in the REST API — prices included (`quoteAmount` is the total quote-asset amount in base units). A price (`askAmount`, `quoteAmount`) has at most 8 decimals of its asset, fewer when the asset has fewer; the API refuses more with "a price has at most N decimals" (N is 8, or the asset's own count when it has fewer), so round a computed price down.
 
 ### Hosted tools
+
+Marked ✱: only with a key you created yourself, not through OAuth.
 
 | Tool | What it does |
 |---|---|
@@ -80,15 +87,15 @@ Amounts in the hosted tools are **base-unit integer strings**, as in the REST AP
 | `request_listing` | Ask to list a token by contract or mint address; runs the [listing checks](/guides/token-listing) (scope `taker`). |
 | `create_rfq` | Post an RFQ (scope `taker`). |
 | `cancel_rfq` | Withdraw your own RFQ before a deal is agreed (scope `taker`). |
-| `quote_rfq` | Quote an RFQ, opening a thread (scope `maker`). The quote is your acceptance at that price — unless you are the initiator (`makerAccepted: false`): then call `accept_terms` on it with your `hashlock`. |
-| `propose_price` | Counter with a new price — a price you agree to; the initiator passes `hashlock`. |
-| `accept_proposal` | Take the counterparty's pending price; with `accept: true` (and, as the initiator, `hashlock`) it agrees the deal in one call. |
-| `accept_terms` | Accept the other side's current terms; the initiator passes `hashlock`. Not needed for a price you set yourself, except an initiator maker's own quote. |
+| `quote_rfq` | Quote an RFQ, opening a thread (scope `maker`). The quote is your acceptance at that price — unless you are the initiator (`makerAccepted: false`): then call `accept_terms` on it with your `hashlock` (through OAuth: the person accepts on the `dealUrl`). |
+| `propose_price` | Counter with a new price — a price you agree to; the initiator passes `hashlock` ✱. |
+| `accept_proposal` | Take the counterparty's pending price; with `accept: true` (and, as the initiator, `hashlock` ✱) it agrees the deal in one call. |
+| `accept_terms` | Accept the other side's current terms; the initiator passes `hashlock` ✱. Not needed for a price you set yourself, except an initiator maker's own quote. |
 | `set_swap_address` | Set your payout / refund address for a leg. |
-| `build_fund` | Unsigned funding transaction(s). |
-| `build_claim` | Unsigned claim (reveals the secret). |
-| `build_refund` | Unsigned refund (after the timelock). |
-| `broadcast_tx` | Relay a transaction you signed (`evm`, `tron`, `bitcoin`, `solana`). |
+| `build_fund` ✱ | Unsigned funding transaction(s). |
+| `build_claim` ✱ | Unsigned claim (reveals the secret). |
+| `build_refund` ✱ | Unsigned refund (after the timelock). |
+| `broadcast_tx` ✱ | Relay a transaction you signed (`evm`, `tron`, `bitcoin`, `solana`). |
 
 ## Local, over stdio
 
