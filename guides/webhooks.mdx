@@ -19,7 +19,7 @@ Response (`201`): `{ "webhook": { id, url, events, enabled }, "secret": "whsec_�
 - Omit `events`, or send an empty list, to receive all events.
 - An account holds at most 10 webhooks. An 11th registration answers `409`.
 
-Other calls: `GET /v1/webhooks` (list, secret not shown), `DELETE /v1/webhooks/{id}`, `POST /v1/webhooks/{id}/ping` (sends a test `ping` delivery, returns `{ ok, deliveryId }`).
+Other calls: `GET /v1/webhooks` (list, secret not shown), `DELETE /v1/webhooks/{id}`, `POST /v1/webhooks/{id}/ping` (sends a test `ping` delivery once, without retries, and returns `{ ok, deliveryId }`).
 
 ## Events
 
@@ -47,7 +47,7 @@ Each event goes to the account it concerns. `quote.created`, `swap.*` and `secre
 Every body also has `type` (the event name), `createdAt` and `deliveryId`. The body of a recorded event also has `id`. Its `id` and `createdAt` are the event's own: `GET /v1/events` returns the same `id` for it. Dedupe on `id` across webhooks and `GET /v1/events`. A body without `id` is a `ping` or an event that the server failed to record, and its `createdAt` is the delivery time.
 
 - The same event can arrive twice. A delivery is dropped once its [retries](#retries-are-best-effort) run out.
-- Two events close together can arrive in either order.
+- Events can arrive in any order. Deliveries run in parallel, and a retried one can arrive hours after later events.
 - Events are notifications, not the record. The thread and the swap are the record: read them before you act, and when something looks missing.
 
 New event types are added over time. Handle an unknown `type` by returning `2xx`, not an error.
@@ -104,9 +104,9 @@ The 300-second window above is an example value for your receiver, not a server 
 
 ## Retries are best-effort
 
-A non-`2xx` or a timeout is retried after 15 s, 30 s, 60 s, 120 s and 240 s — **6 attempts over 7 m 45 s** — and then dropped. There is no redelivery endpoint and no delivery log beyond `lastStatus` (and `lastDeliveryAt`) on `GET /v1/webhooks`.
+A non-`2xx` or a timeout is retried after 15 s, 1 m, 5 m, 15 m, 1 h and 2 h — **7 attempts over at least 3 h 21 m** — and then dropped. There is no redelivery endpoint and no delivery log beyond `lastStatus` (and `lastDeliveryAt`) on `GET /v1/webhooks`.
 
-If your receiver is down longer than that, you lose deliveries. To catch up, pass a `cursor` you kept from an earlier `GET /v1/events` call as `after`. A webhook `id` is not a cursor. A call without `after` returns only the newest page. Without a kept cursor, reconcile from the threads and swaps with `GET /v1/threads/{id}` and `GET /v1/swaps/{id}`. Do not treat webhooks as the record.
+If your receiver is down longer than that, you lose deliveries. To catch up, pass a `cursor` you kept from an earlier `GET /v1/events` call as `after`. A webhook `id` is not a cursor. A call without `after` returns only the newest page. Without a kept cursor, start from `after=0` and page on with the returned `cursor` to read every kept event (30 days), and skip the ids you already handled. Then read `GET /v1/swaps/{id}` and `GET /v1/threads/{id}` for each open deal: they are the record, and some changes send no event.
 
 ## Read events without a URL
 
