@@ -4050,6 +4050,7 @@
     "/v1/webhooks/{id}/ping": {
       "post": {
         "summary": "Send a test delivery to a webhook (sent once, not retried)",
+        "description": "Pings are delivered apart from event deliveries. An account can send 6 in a 60-second window; more answer 429 with Retry-After.",
         "parameters": [
           {
             "name": "id",
@@ -4084,6 +4085,26 @@
           },
           "404": {
             "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "more than 6 pings in this account's 60-second window; Retry-After says when to ping again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "50 pings from all accounts are already waiting to be sent; Retry-After says when to ping again",
             "content": {
               "application/json": {
                 "schema": {

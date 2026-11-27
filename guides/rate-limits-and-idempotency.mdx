@@ -28,6 +28,8 @@ Quotes sent over the [maker feed](/guides/maker-feed) spend from the same budget
 
 Key minting (`POST /v1/keys`) has its own limit: 20 requests per hour per client IP.
 
+A webhook ping (`POST /v1/webhooks/{id}/ping`) has its own limit too: 6 per account in a fixed 60-second window, then `429` with `Retry-After`. While many pings from all accounts are waiting to be sent, it answers `503` with `Retry-After`.
+
 ## Idempotency
 
 Send an `Idempotency-Key` header on any `POST` (and `DELETE`) to make retries safe.
