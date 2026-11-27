@@ -1,9 +1,9 @@
 ---
 title: "Webhooks"
-description: "Swap lifecycle events pushed to your HTTPS endpoint, signed with HMAC-SHA256."
+description: "The deal steps on your account, pushed to your HTTPS endpoint and signed with HMAC-SHA256, or read with GET /v1/events."
 ---
 
-The [maker feed](/guides/maker-feed) tells you what to quote. Webhooks tell you what happened to your swaps.
+The [maker feed](/guides/maker-feed) tells you what to quote. Events tell you what happened to your account: quotes, counter-prices, messages and swap steps. The swap statuses `expired`, `failed` and `refunding` send no event, so read `GET /v1/swaps/{id}` for those. A webhook pushes each event to your URL. `GET /v1/events` returns the same events when you ask, with no URL to host. See [Read events without a URL](#read-events-without-a-url).
 
 ## Register
 
@@ -17,26 +17,40 @@ Response (`201`): `{ "webhook": { id, url, events, enabled }, "secret": "whsec_�
 
 - `url` must be `https`. A non-public address literal is rejected at registration. A hostname that resolves into a private range registers, but every delivery to it fails (visible only as `lastStatus`).
 - Omit `events`, or send an empty list, to receive all events.
+- An account holds at most 10 webhooks. An 11th registration answers `409`.
 
 Other calls: `GET /v1/webhooks` (list, secret not shown), `DELETE /v1/webhooks/{id}`, `POST /v1/webhooks/{id}/ping` (sends a test `ping` delivery, returns `{ ok, deliveryId }`).
 
 ## Events
 
-Events go to the webhooks of **both** parties of a swap.
+Each event goes to the account it concerns. `quote.created`, `swap.*` and `secret.revealed` go to both parties. `rfq.expired` goes to the RFQ's creator. The other thread events go to the counterparty of whoever acted. When the RFQ itself closes, `thread.closed` goes to the maker of each thread that was still open; when it reopens, `thread.reopened` goes to the maker of each thread it closed.
 
 | Event | When | Payload fields |
 |---|---|---|
-| `quote.created` | A maker quoted an RFQ. | `threadId`, `rfqId`, `quoteAmount` |
-| `swap.agreed` | Both sides accepted; the swap exists. | `swapId`, `threadId` |
+| `quote.created` | A maker quoted an RFQ. | `rfqId`, `threadId`, `quoteAmount` |
+| `proposal.created` | The counterparty proposed a new price. | `rfqId`, `threadId`, `amount` |
+| `terms.accepted` | The counterparty accepted your price or the terms. Read the thread to see whether your accept is still needed. | `rfqId`, `threadId`, `amount` |
+| `message.created` | The counterparty sent a chat message. Read it with `GET /v1/threads/{id}`. | `rfqId`, `threadId` |
+| `rfq.expired` | Your RFQ expired. | `rfqId` |
+| `thread.closed` | A negotiation of yours ended without a deal. The counterparty declined it, or the RFQ was cancelled, expired, deleted or agreed with another maker. After a decline or a deleted RFQ, the thread is gone (`404`). | `rfqId`, `threadId` |
+| `thread.reopened` | The RFQ was reopened, and your closed negotiation with it. | `rfqId`, `threadId` |
+| `swap.agreed` | Both sides accepted; the swap exists (status `agreed`). | `swapId`, `threadId`, `status` |
 | `swap.funded` | A leg was funded (status `initiator_funded` or `counterparty_funded`). | `swapId`, `status` |
 | `secret.revealed` | The initiator claimed; the secret is public (status `initiator_claimed`). | `swapId`, `status` |
-| `swap.settled` | The counterparty's claim landed (status `counterparty_claimed`). | `swapId`, `status` |
+| `swap.settled` | The counterparty's claim landed (status `counterparty_claimed`). Read the swap to see each leg. | `swapId`, `status` |
 | `swap.refunded` | A leg was refunded (status `refunded`). | `swapId`, `status` |
+| `swap.half_settled` | One leg was claimed and the other refunded at its timelock (status `half_settled`). | `swapId`, `status` |
 | `ping` | Sent by `POST /v1/webhooks/{id}/ping`. | `message` |
 
-Every body also has `type` (the event name), `deliveryId` and `createdAt`. Payloads are minimal: fetch full detail from `GET /v1/swaps/{id}`.
+`amount` and `quoteAmount` are in base units. Payloads carry ids only: fetch the detail from `GET /v1/threads/{id}`, `GET /v1/rfqs/{id}` or `GET /v1/swaps/{id}`.
 
-Handle an unknown `type` by returning `2xx`, not an error.
+Every body also has `type` (the event name), `createdAt` and `deliveryId`. The body of a recorded event also has `id`. Its `id` and `createdAt` are the event's own: `GET /v1/events` returns the same `id` for it. Dedupe on `id` across webhooks and `GET /v1/events`. A body without `id` is a `ping` or an event that the server failed to record, and its `createdAt` is the delivery time.
+
+- The same event can arrive twice. A delivery is dropped once its [retries](#retries-are-best-effort) run out.
+- Two events close together can arrive in either order.
+- Events are notifications, not the record. The thread and the swap are the record: read them before you act, and when something looks missing.
+
+New event types are added over time. Handle an unknown `type` by returning `2xx`, not an error.
 
 ## Delivery
 
@@ -92,4 +106,20 @@ The 300-second window above is an example value for your receiver, not a server 
 
 A non-`2xx` or a timeout is retried after 15 s, 30 s, 60 s, 120 s and 240 s — **6 attempts over 7 m 45 s** — and then dropped. There is no redelivery endpoint and no delivery log beyond `lastStatus` (and `lastDeliveryAt`) on `GET /v1/webhooks`.
 
-If your receiver is down longer than that, you lose events. Treat `GET /v1/swaps/{id}` as the authoritative state and reconcile against it; do not treat webhooks as the record.
+If your receiver is down longer than that, you lose deliveries. To catch up, pass a `cursor` you kept from an earlier `GET /v1/events` call as `after`. A webhook `id` is not a cursor. A call without `after` returns only the newest page. Without a kept cursor, reconcile from the threads and swaps with `GET /v1/threads/{id}` and `GET /v1/swaps/{id}`. Do not treat webhooks as the record.
+
+## Read events without a URL
+
+`GET /v1/events` returns the events of your account, oldest first. It needs no URL and no registration, and it lists every event type whatever your webhooks subscribe to.
+
+```bash
+curl -s "$HL/v1/events?after=$CURSOR" -H "Authorization: Bearer $HK"
+```
+
+Response: `{ "events": [ { id, type, createdAt, … } ], "cursor": "…" }`. Each event has the payload fields from the [table above](#events).
+
+- Keep the returned `cursor` and pass it unchanged as `after` on the next call. Pass it also when `events` is empty: the cursor never skips a recorded event. Events are kept 30 days, so a cursor older than that can pass events that were deleted; then reconcile from the threads and swaps.
+- Without `after`, you get only the newest page. `after=0` reads every kept event from the oldest. Call once to start, then always with the returned `cursor`.
+- `limit` sets the page size, 1 to 200 (default 100). With `after`, fewer than `limit` events means you are caught up.
+- An event appears here within about a second of being recorded. Events are kept 30 days.
+- The rules above hold here too. Dedupe on `id`, expect events out of order, and read the thread or the swap before you act.

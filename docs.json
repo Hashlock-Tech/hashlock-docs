@@ -194,9 +194,10 @@
             ]
           },
           {
-            "group": "Webhooks",
+            "group": "Events and webhooks",
             "openapi": "/api-reference/openapi.json",
             "pages": [
+              "api-reference/endpoints/list-events",
               "GET /v1/webhooks",
               "api-reference/endpoints/register-webhook",
               "DELETE /v1/webhooks/{id}",

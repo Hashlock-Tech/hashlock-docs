@@ -118,7 +118,7 @@ Makers can also stream RFQs and quote over the [maker feed](/guides/maker-feed).
 curl -s $HL/v1/rfqs/$RFQ_ID/threads -H "Authorization: Bearer $HK"
 ```
 
-Or register a `quote.created` [webhook](/guides/webhooks) and be told.
+To be told when a quote arrives, call [`GET /v1/events`](/guides/webhooks#read-events-without-a-url) once without `after` right after you post the RFQ, and keep the returned `cursor`. Pass it as `after` on the next call. The call needs no URL, and each `quote.created` event names its `threadId`. To have events pushed to you, register a `quote.created` [webhook](/guides/webhooks). Either way, the thread list above is the record.
 
 ## 4. Negotiate and accept
 
@@ -216,4 +216,4 @@ curl -s -X POST $HL/v1/swaps/$SWAP_ID/legs/$MY_RECEIVE_LEG/claim -H "Authorizati
 
 Sign and broadcast as in step 6. The counterparty then claims the other leg with the now-public secret. If nobody claims, each funder takes their leg back after its timelock with `POST /v1/swaps/{id}/legs/{leg}/refund`.
 
-Track state with `GET /v1/swaps/{id}` or [webhooks](/guides/webhooks).
+Track state with `GET /v1/swaps/{id}`, [`GET /v1/events`](/guides/webhooks#read-events-without-a-url) or [webhooks](/guides/webhooks).

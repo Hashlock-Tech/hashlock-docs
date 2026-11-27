@@ -79,6 +79,7 @@ Marked ✱: only with a key you created yourself, not through OAuth.
 | `list_assets` | Asset registry. |
 | `list_open_rfqs` | Browse the RFQ board (cursor-paginated). |
 | `get_rfq` | One RFQ. |
+| `list_events` | What happened to your account since a cursor: quotes, counter-prices, messages and deal steps, oldest first. Pass the returned `cursor` as `after` next time. Events are hints: read the thread (`get_thread`) or the swap (`swap_status`) before you act. The local server does not have it. |
 | `list_rfq_threads` | The negotiation threads on an RFQ: every maker's quote on your own RFQ, or your own thread on someone else's. How a taker finds the quotes it received. |
 | `list_my_rfqs` | Your own RFQs, private ones and every status included. Check here before re-posting one whose create call timed out. |
 | `list_swaps` | Your swaps (cursor-paginated). |

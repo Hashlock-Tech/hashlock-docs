@@ -94,4 +94,4 @@ See [Rate limits and idempotency](/guides/rate-limits-and-idempotency).
 
 ## After the claim
 
-Once the initiator claims, the secret is on chain. The counterparty claims the other leg with it — using the claim builder with that secret — or, on EVM, TRON and Solana, the keeper may claim it for them. Track progress with `GET /v1/swaps/{id}` or [webhooks](/guides/webhooks).
+Once the initiator claims, the secret is on chain. The counterparty claims the other leg with it — using the claim builder with that secret — or, on EVM, TRON and Solana, the keeper may claim it for them. Track progress with `GET /v1/swaps/{id}`, [`GET /v1/events`](/guides/webhooks#read-events-without-a-url) or [webhooks](/guides/webhooks).

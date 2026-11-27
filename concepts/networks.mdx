@@ -74,4 +74,4 @@ A leg counts as funded — and a claim or refund as done — only once the watch
 | TRON | the block is solidified | 1 minute |
 | Solana | `finalized` commitment | 15 seconds |
 
-So the time from broadcast to "funded" is mostly the chain's: a Bitcoin funding takes three blocks, each about ten minutes on average and sometimes much longer. Do not fund the next leg, or treat a leg as settled, before `GET /v1/swaps/{id}` (or the `swap.*` [webhooks](/guides/webhooks)) says so.
+So the time from broadcast to "funded" is mostly the chain's: a Bitcoin funding takes three blocks, each about ten minutes on average and sometimes much longer. Do not fund the next leg, or treat a leg as settled, before `GET /v1/swaps/{id}` says so. An event from [webhooks](/guides/webhooks) or [`GET /v1/events`](/guides/webhooks#read-events-without-a-url) tells you when to read it again.

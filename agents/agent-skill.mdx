@@ -39,7 +39,7 @@ Use it for what pools do badly: **large blocks of thin-liquidity tokens** traded
 | Get a key with the wallet | — | `GET /v1/keys/nonce`, `POST /v1/keys` |
 | See what trades | `list_assets`, `list_open_rfqs` | `GET /v1/assets`, `GET /v1/rfqs` |
 | Post an RFQ (taker) | `create_rfq` | `POST /v1/rfqs` |
-| Find the quotes on it | `list_rfq_threads` | `GET /v1/rfqs/{id}/threads` |
+| Find the quotes on it | `list_events` says where to look, `list_rfq_threads` is the record | `GET /v1/events`, `GET /v1/rfqs/{id}/threads` |
 | Quote someone's RFQ (maker) | `quote_rfq` | `POST /v1/rfqs/{id}/quotes` |
 | Negotiate and agree | `propose_price`, `accept_proposal`, `accept_terms` | `/v1/threads/{id}/…` |
 | Settle | `set_swap_address`, `build_fund`, `build_claim`, `build_refund` | [Settle a leg](/guides/settle-a-leg) |

@@ -77,7 +77,7 @@ Errors arrive as `{ "type": "error", "error": "…" }` and do **not** close the 
 - **No resume, nothing replayed.** Detect a dead socket and reconnect. The fresh snapshot is your recovery for the public book, with its two limits: 100 entries and no private orders.
 - The server sends protocol-level WebSocket pings every 30 seconds and drops a peer that has not answered the previous one. Standard clients answer pings automatically. There is no application-level heartbeat message.
 - At most 20 open sockets per client IP. Frames larger than 64 KiB are rejected.
-- This socket is not a settlement log. For what happened to your swaps, use [webhooks](/guides/webhooks).
+- This socket is not a settlement log. For what happened to your swaps, use [webhooks](/guides/webhooks) or [`GET /v1/events`](/guides/webhooks#read-events-without-a-url).
 
 ## Example (Node)
 
